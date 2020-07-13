@@ -1,0 +1,80 @@
+/*
+    Fig4.gss, 5/8/03, mww
+    Plot SD of 4 quarter growth rates and BP series
+*/
+new;
+library pgraph;
+graphset;
+outwidth 200;
+
+savpath="c:\\g7\\gss\\fmt\\"; @ Save Path @
+
+ndraw1 = 400;
+
+
+cname=
+"cn" $|
+"fr" $|
+"bd" $|
+"it" $|
+"jp" $|
+"uk" $|
+"us" ;
+
+ns=rows(cname);  @ Number of Series @
+
+clab=
+"A. Canada" $|
+"B. France" $|
+"C. Germany" $|
+"D. Italy" $|
+"E. Japan" $|
+"F. U.K." $|
+"G. U.S." ;
+
+@ .. Read in Series @
+load path = ^savpath;
+_pdate = "";
+_pltype = 6;
+_plwidth = 3;
+_ptek="Fig4_01.tkf";
+xtics(1960,2005,5,1);
+ytics(0.5,3.5,0.5,0);
+begwind;
+window(3,3,0);
+setwind(1);
+i=1; do while i <= ns;
+  s1 = "stdann_tvp_40_" $+ cname[i,1] $+ "gdppc_" $+ ftocv(ndraw1,6,0);
+  load tmp = ^s1;
+  cal=tmp[.,1];
+  ytran2=tmp[.,2];
+  stdann=tmp[.,3];
+  stdbp=tmp[.,4];
+  title(clab[i]);
+  xy(cal,stdann);
+  nextwind;
+i=i+1; endo;
+endwind;
+wait;
+
+_pdate = "";
+_pltype = 6;
+_plwidth = 3;
+_ptek="FigOLD5_01.tkf";
+xtics(1960,2005,5,1);
+ytics(0.5,2.0,0.5,0);
+begwind;
+window(3,3,0);
+setwind(1);
+i=1; do while i <= ns;
+  s1 = "stdann_tvp_40_" $+ cname[i,1] $+ "gdppc_" $+ ftocv(ndraw1,6,0);
+  load tmp = ^s1;
+  cal=tmp[.,1];
+  ytran2=tmp[.,2];
+  stdann=tmp[.,3];
+  stdbp=tmp[.,4];
+  title(clab[i]);
+  xy(cal,stdbp);
+  nextwind;
+i=i+1; endo;
+endwind; 

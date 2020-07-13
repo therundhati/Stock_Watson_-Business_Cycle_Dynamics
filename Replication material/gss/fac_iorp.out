@@ -1,0 +1,63 @@
+Sample Period         1960.00          1983.99 
+Sample Period         1960.00          1983.99 
+Unrestricted Log Likelihood         2681.86 
+Restricted Log Likelihood         2675.33 
+Degrees of Freedom         8.00000 
+LR Stat and Pvalue         13.0527         0.110049 
+Factor Loadings
+
+      0.00497649     -0.000819416 
+     0.000688055       0.00651384 
+      0.00451813       0.00383604 
+     0.000354985       0.00309170 
+      0.00373212       0.00162364 
+      0.00401273       0.00398595 
+      0.00514828         0.000000 
+Uniquess SD
+
+      0.00675060 
+      0.00113637 
+       0.0104645 
+      0.00914469 
+      0.00903650 
+       0.0101938 
+      0.00843581 
+
+
+Sample Period         1984.00          2003.00 
+Sample Period         1984.00          2003.00 
+Unrestricted Log Likelihood         2556.00 
+Restricted Log Likelihood         2549.66 
+Degrees of Freedom         8.00000 
+LR Stat and Pvalue         12.6781         0.123415 
+Factor Loadings
+
+      0.00480578      -0.00146316 
+      0.00154163       0.00366393 
+     -0.00115597       0.00379829 
+     0.000974872       0.00265443 
+    -0.000779774    -4.71749e-005 
+     0.000554288      0.000555377 
+      0.00206180         0.000000 
+Uniquess SD
+
+     0.000921647 
+     0.000817131 
+      0.00672141 
+      0.00398997 
+      0.00902199 
+      0.00415292 
+      0.00383737 
+
+
+Canada ,France ,Germany ,Italy ,Japan ,U.K. ,U.S. ,ratio of shock standard deviations -- second period / first period
+
+   0.567 
+   0.659 
+   0.137 
+   0.719 
+   0.642 
+   0.436 
+   0.998 
+   0.407 
+   0.455 

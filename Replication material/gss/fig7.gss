@@ -1,0 +1,96 @@
+/*
+    Fig7.gss, 5/7/03, mww
+    Graph Spectral Decomposition by Date
+*/
+new;
+library pgraph;
+graphset;
+outwidth 200;
+iext="q50";            @ Data Extension -- input @
+nfy=1950;              @ First Year @
+nfp=1;                 @ First Period of Year @
+nly=2002;              @ Last Year @
+nlp=4;                 @ Last Period of Year @
+nper=4;                       @ Number of Periods Per Year @
+savpath="c:\\g7\\gss\\fmt\\"; @ Save Path @
+missc=1.0e+032;        @ Missing Value Code in ASCII Files @
+
+small=1.0e-06;
+
+nord=100;              @ Number of Ordinates for spectral calculation @
+nperl=6;               @ Lower cutoff for bandpass @
+nperu=32;              @ Upper cutoff for bandpass @
+step=pi/nord;
+wvec=seqa(step,step,nord); 
+nfl=2*pi/nperl;
+nfu=2*pi/nperu;
+ibc =(wvec .<= nfl).*(wvec .>= nfu);
+
+@ ... Quarterly Difference Filter ... @
+let im = 0+1i;
+z=exp(-wvec*im);
+d4filt=ones(nord,1)-z.^4;
+d4g=real(d4filt);
+d4gsq=d4g.^2;    @ Gain Squared of 1-z^4 @
+
+
+
+dnobs=nper*(nly-nfy-1)+nlp+(nper+1-nfp);        @ - Number of Obs, data - @
+calvec=seqa(nfy+(nfp-1)/nper,1/nper,dnobs);     @ -- Calendar Vector -- @
+
+cname=
+"cn" $|
+"fr" $|
+"bd" $|
+"it" $|
+"jp" $|
+"uk" $|
+"us" ;
+
+ns=rows(cname);  @ Number of Series @
+
+clab=
+"A. Canada" $|
+"B. France" $|
+"C. Germany" $|
+"D. Italy" $|
+"E. Japan" $|
+"F. U.K." $|
+"G. U.S." ;
+
+_pdate = "";
+_pltype = 6|6|3;
+_plwidth = 3|1|2;
+_ptek="Fig7.tkf";
+xtics(1960,2005,5,1);
+/* ytics(-8.0,8.0,2,0); */
+begwind;
+window(3,3,0);
+setwind(1);
+load path = ^savpath;
+i=1; do while i <= rows(cname);
+ str="spectot_" $+ ftocv(i,1,0);
+ load tot=^str;
+ str="specfac_" $+ ftocv(i,1,0);
+ load fac=^str;
+ str="specspill_" $+ ftocv(i,1,0);
+ load spill=^str;
+ str="specown_" $+ ftocv(i,1,0);
+ load own=^str;
+ tot=selif(tot',ibc);
+ fac=selif(fac',ibc);
+ spill=selif(spill',ibc);
+ own=selif(own',ibc);
+ tot=sumc(tot)/nord;
+ fac=sumc(fac)/nord;
+ spill=sumc(spill)/nord;
+ own=sumc(own)/nord;
+ 
+ y=tot~fac~(fac+spill);
+ title(clab[i]);
+ xy(calvec,y);
+ nextwind;
+i=i+1; endo;
+endwind;
+
+

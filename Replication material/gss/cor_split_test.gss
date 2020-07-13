@@ -1,0 +1,533 @@
+/*
+    cor_split_test.gss, 1/28/04, mww
+    split sample corrlations and tests for changes
+*/
+new;
+library pgraph;
+graphset;
+outwidth 200;
+ofile="cor_split_test.out";  @ Output File Name @
+iext="q50";            @ Data Extension -- input @
+nfy=1950;              @ First Year @
+nfp=1;                 @ First Period of Year @
+nly=2002;              @ Last Year @
+nlp=4;                 @ Last Period of Year @
+nper=4;                       @ Number of Periods Per Year @
+dpath="c:\\g7\\data\\";       @ Data Path @
+missc=1.0e+032;        @ Missing Value Code in ASCII Files @
+othlag=1;              @ Number of other lags in VAR @
+ownlag=4;              @ number of own lags in VAR @
+nma=6;                 @ Number of lags in Newey-West Covariance Matrix for 
+                         Variances, Covariances @
+
+smplvec = 
+(1960.0~1983.99) |
+(1984.0~2003);
+
+small=1.0e-06;
+
+dnobs=nper*(nly-nfy-1)+nlp+(nper+1-nfp);        @ - Number of Obs, data - @
+calvec=seqa(nfy+(nfp-1)/nper,1/nper,dnobs);     @ -- Calendar Vector -- @
+
+load path = ^dpath;
+
+#include fcst.prc;
+#include udatain.prc;
+
+cname=
+"cn" $|
+"fr" $|
+"bd" $|
+"it" $|
+"jp" $|
+"uk" $|
+"us" ;
+
+@ Country Pointers @
+icn=1;
+ifr=2;
+ibd=3;
+iit=4;
+ijp=5;
+iuk=6;
+ius=7;
+
+ns=rows(cname);  @ Number of Series @
+nreg=ns*(ownlag+(ns-1)*othlag);             @ Number of Regressors @ 
+nregvec=(ownlag+(ns-1)*othlag)*ones(ns,1);  @ Vector with number of regressors in each equation@
+
+
+output file = ^ofile reset; output on;
+outwidth 200;
+format /rd 8,2;
+"Results from Cor_split_test.gss";
+"Date";;datestr(date);
+"Time";;timestr(time);
+"Number of lags in Newey-West Cov Matrix for Estimated Correlations";;nma;
+"Number of own lags in VAR";;ownlag;
+"Number of other lags in VAR";;othlag;
+"";"";
+
+@ .. Read in Series @
+s=miss(zeros(dnobs,ns),0);
+imark=1; do while imark <= ns;
+ ystr="" $+ cname[imark,1] $+ "gdppc_sm." $+ iext;
+ ydata=udatain(ystr,missc,dnobs);
+ ytran=ydata;    @ Note ... data are already in first differences (detrended) @ 
+ s[.,imark]=ytran;
+imark=imark+1; endo;
+
+
+@ Compute Direct Measure of d4 correlation @
+@ .. Read in Series @
+d4=miss(zeros(dnobs,ns),0);
+d4[4:dnobs,.]=s[4:dnobs,.]+s[3:dnobs-1,.]+s[2:dnobs-2,.]+s[1:dnobs-3,.];
+d4=100*d4;
+nx1=ns*(ns+1)/2;   @ Number of Variances and Covariances @
+nx2=ns*(ns-1)/2;   @ Number of Covariances @
+
+ni=1; do while ni <= rows(smplvec);
+ "Sample Period";; smplvec[ni,.];
+ ismpl = (calvec .>= smplvec[ni,1]-small) .* (calvec .<= smplvec[ni,2]-small);
+ x=selif(d4,ismpl);
+ x=packr(x);
+ x=x-meanc(x)';
+ y=miss(zeros(rows(x),nx1),0);
+ for t (1,rows(x),1);
+  tmp=x[t,.]'x[t,.];
+  y[t,.]=(vech(tmp))';  @ Contains vectors of squares and cross products @
+ endfor;
+ {ybar,vybar}=hacm(y,nma,1);  @ Ybar contains variances and covariances @
+ @ Compute Sample Correlations and Covariance Matrix of Sample Correlations @
+ corvec=zeros(nx2,1);  @ Vector for holding Correlations @
+ g=zeros(nx2,nx1);     @ Gradient vector for delta-method @
+ ii=1;
+ i=1; do while i <= ns;
+  j=1; do while j <= i-1;
+   nxi= i + (i*(i-1)/2);
+   nxj= j + (j*(j-1)/2);
+   cij= j + (i*(i-1)/2);
+   sdi=sqrt(ybar[nxi]);
+   sdj=sqrt(ybar[nxj]);
+   covij=ybar[cij];
+   rhoij=covij/(sdi*sdj); 
+   corvec[ii]=rhoij; 
+   @ Gradient for Delta Method @
+    g[ii,nxi]=-0.5*(rhoij/ybar[nxi]);
+    g[ii,nxj]=-0.5*(rhoij/ybar[nxj]);
+    g[ii,cij]=1/(sdi*sdj);
+    ii=ii+1;
+  j=j+1; endo;
+ i=i+1; endo;
+ 
+ @ Delta-Method Covariance Matrix @
+ vcor=g*vybar*g';
+ if ni .== 1;
+  cor1=corvec;
+  vcor1=vcor;
+ elseif ni .== 2;
+  cor2=corvec;
+  vcor2=vcor;  
+ endif;
+ni=ni+1; endo;
+
+difcor=cor2-cor1;
+vdif=vcor1+vcor2;
+sedif=sqrt(diag(vdif));
+secor1=sqrt(diag(vcor1));
+secor2=sqrt(diag(vcor2));
+
+"Correlation for Period 1 (SE), Correlation for Period 2 (SE)";
+i=1; do while i <= nx2;
+ format /rd 6,2;
+ cor1[i];;" (";;secor1[i];;"), ";;cor2[i];;" (";;secor2[i];;"), ";
+i=i+1; endo;
+"";
+"Differences in Correlations (SE), tstat (Pvalue)";
+tstat=difcor./sedif;
+tmp=tstat.^2;
+pvalue=cdfchic(tmp,1);
+i=1; do while i <= nx2;
+ format /rd 6,2;
+ difcor[i];;" (";;sedif[i];;"), ";;tstat[i];;" (";;pvalue[i];;"), ";
+i=i+1; endo;
+"";
+"Differences in Correlations (SE), Reformated";
+tstat=difcor./sedif;
+tmp=tstat.^2;
+pvalue=cdfchic(tmp,1);
+ii=1;
+i=1; do while i <= ns;
+ j=1; do while j <= ns;
+  if j .< i;
+   difcor[ii];;" (";;sedif[ii];;"), ";;
+   ii=ii+1;
+  else;
+   " ,";;
+  endif;
+ j=j+1; endo;
+ "";
+i=i+1; endo;
+"";""; 
+
+"Overall Test for Changes in Correlations, DF, Pvalue";
+vdifinv=invpd(vdif);
+teststat=difcor'vdifinv*difcor;
+df=rows(difcor);
+teststat;;df;;cdfchic(teststat,df);
+"Debug ... approximate";;tmp=teststat*(20/21);
+"QLR Pvalue";;pval_qlr(teststat,20,0.15);
+"";"";
+@ Compute Other Summary Statistics @
+@ Average Change in Correlation @
+nc=rows(difcor);
+a=ones(nc,1)/nc;
+avg_difcor=a'difcor;
+se_avg_difcor=sqrt(a'vdif*a);
+"Average Change in Correlation";;avg_difcor;
+"Std Error of Average Change";;se_avg_difcor;
+fstat=(avg_difcor/se_avg_difcor)^2;
+"Pvalues  ";;cdfchic(fstat,1);;pval_qlr(fstat,1,0.15);
+"";"";
+@ Average Changes, Excluding Japan @
+a=ones(nc,1);
+ii=1;
+i=1; do while i <= ns;
+ j=1; do while j <= ns;
+  if j .< i;
+   if (i .== ijp) .or (j .== ijp);
+    a[ii]=0;
+   endif;
+   ii=ii+1;
+  endif;
+ j=j+1; endo;
+i=i+1; endo;
+a=a./sumc(a);
+avg_difcor=a'difcor;
+se_avg_difcor=sqrt(a'vdif*a);
+"Average Change in Correlation Excluding Japan";;avg_difcor;
+"Std Error of Average Change Excluding Japan";;se_avg_difcor;
+fstat=(avg_difcor/se_avg_difcor)^2;
+"Pvalues  ";;cdfchic(fstat,1);;pval_qlr(fstat,1,0.15);
+"";"";
+@ Average Changes, English Speaking @
+a=zeros(nc,1);
+ii=1;
+isel=icn|iuk|ius;
+i=1; do while i <= ns;
+ j=1; do while j <= ns;
+  if j .< i;
+   if (sumc((i .== isel)) .> 0) .and (sumc((j.== isel)) .> 0);
+    i;;j;
+    a[ii]=1;
+   endif;
+   ii=ii+1;
+  endif;
+ j=j+1; endo;
+i=i+1; endo;
+a=a./sumc(a);
+avg_difcor=a'difcor;
+se_avg_difcor=sqrt(a'vdif*a);
+"Average Change in Correlation English Speaking";;avg_difcor;
+"Std Error of Average Change English Speaking";;se_avg_difcor;
+fstat=(avg_difcor/se_avg_difcor)^2;
+"Pvalues  ";;cdfchic(fstat,1);;pval_qlr(fstat,1,0.15);
+"";"";
+aeng=a;
+
+
+@ Average Changes, It, Fr, Germany Speaking @
+a=zeros(nc,1);
+ii=1;
+isel=ifr|iit|ibd;
+i=1; do while i <= ns;
+ j=1; do while j <= ns;
+  if j .< i;
+   if (sumc((i .== isel)) .> 0) .and (sumc((j.== isel)) .> 0);
+    i;;j;
+    a[ii]=1;
+   endif;
+   ii=ii+1;
+  endif;
+ j=j+1; endo;
+i=i+1; endo;
+a=a./sumc(a);
+avg_difcor=a'difcor;
+se_avg_difcor=sqrt(a'vdif*a);
+"Average Change in Correlation Fr, It, BD";;avg_difcor;
+"Std Error of Average Change Fr, It, BD";;se_avg_difcor;
+fstat=(avg_difcor/se_avg_difcor)^2;
+"Pvalues  ";;cdfchic(fstat,1);;pval_qlr(fstat,1,0.15);
+"";"";
+aeur=a;
+
+@ Average Changes, It, Fr, Germany Speaking @
+a=zeros(nc,1);
+ii=1;
+isel1=icn|iuk|ius;
+isel2=ifr|iit|ibd;
+i=1; do while i <= ns;
+ j=1; do while j <= ns;
+  if j .< i;
+   if (sumc((i .== isel1)) .> 0) .and (sumc((j.== isel2)) .> 0);
+    i;;j;
+    a[ii]=1;
+   endif;
+   if (sumc((i .== isel2)) .> 0) .and (sumc((j.== isel1)) .> 0);
+    i;;j;
+    a[ii]=1;
+   endif;
+   ii=ii+1;
+  endif;
+ j=j+1; endo;
+i=i+1; endo;
+a=a./sumc(a);
+avg_difcor=a'difcor;
+se_avg_difcor=sqrt(a'vdif*a);
+"Difference Average Change in Correlation Eng. Speaking - Europe";;avg_difcor;
+"Std Error of Average Change Eng. Speaking - Europe";;se_avg_difcor;
+fstat=(avg_difcor/se_avg_difcor)^2;
+"Pvalues  ";;cdfchic(fstat,1);;pval_qlr(fstat,1,0.15);
+"";"";
+across=a;
+
+@ Average Changes, Japan and others @
+a=zeros(nc,1);
+ii=1;
+isel1=ijp;
+isel2=icn|iuk|ius|ifr|iit|ibd;
+i=1; do while i <= ns;
+ j=1; do while j <= ns;
+  if j .< i;
+   if (sumc((i .== isel1)) .> 0) .and (sumc((j.== isel2)) .> 0);
+    i;;j;
+    a[ii]=1;
+   endif;
+   if (sumc((i .== isel2)) .> 0) .and (sumc((j.== isel1)) .> 0);
+    i;;j;
+    a[ii]=1;
+   endif;
+   ii=ii+1;
+  endif;
+ j=j+1; endo;
+i=i+1; endo;
+a=a./sumc(a);
+avg_difcor=a'difcor;
+se_avg_difcor=sqrt(a'vdif*a);
+"Difference Average Change in Correlation Japan and Others";;avg_difcor;
+"Std Error";;se_avg_difcor;
+fstat=(avg_difcor/se_avg_difcor)^2;
+"Pvalues  ";;cdfchic(fstat,1);;pval_qlr(fstat,1,0.15);
+"";"";
+
+@ Difference ... Europe/Eng minus Crossproduct @
+a=(aeur+aeng)/2 - across;
+avg_difcor=a'difcor;
+se_avg_difcor=sqrt(a'vdif*a);
+"Difference Europe/Eng minus Crossproduct";;avg_difcor;
+"Std Error of Europe/Eng minus Crossproduct";;se_avg_difcor;
+fstat=(avg_difcor/se_avg_difcor)^2;
+"Pvalues  ";;cdfchic(fstat,1);;pval_qlr(fstat,1,0.15);
+"";"";
+
+"";"";
+
+@ VAR Calculations @
+
+ni=1; do while ni <= rows(smplvec);
+ "Sample Period";; smplvec[ni,.];
+ ismpl = (calvec .>= smplvec[ni,1]-small) .* (calvec .<= smplvec[ni,2]-small);
+ @ Matrix of Dependent Variables @
+ yt=selif(s,ismpl);
+ 
+ @ Construct X Matrix -- Using lags of other series ... unrestricted @
+ xt=miss(zeros(dnobs,nreg),0);
+ i=1; do while i <= ns;
+  ii=(i-1)*(ownlag+(ns-1)*othlag);
+  j=1; do while j <= ownlag;
+   xt[j+1:dnobs,ii+j]=s[1:dnobs-j,i];
+  j=j+1; endo;
+  ii=ii+ownlag;
+  ik=1; do while ik <= ns;
+   if ik ./= i;
+    j=1; do while j <= othlag;
+     xt[j+1:dnobs,ii+j]=s[1:dnobs-j,ik];
+    j=j+1; endo;
+    ii=ii+othlag;
+   endif;
+  ik=ik+1; endo;
+ i=i+1; endo;
+ xt=selif(xt,ismpl); 
+ 
+ @ Check Number of Observations @
+ tmp=packr(yt~xt);
+ yt=tmp[.,1:ns];
+ xt=tmp[.,ns+1:cols(tmp)];
+ 
+ @ Construct GLS Estimates of Regression Coefficients @
+  nt=rows(yt);  @ Number of time periods @
+  ny=cols(yt);  @ Number of equations @
+  nr=cols(xt);  @ Total Number of regressors @
+  @ Step 1: Form y and x matrix for stacked system @
+  y=vec(yt);
+  x=zeros(nt*ny,nr);
+  jj=0;
+  i=1; do while i <= ny;
+   ii=(i-1)*nt;
+   x[ii+1:ii+nt,jj+1:jj+nregvec[i]]=xt[.,jj+1:jj+nregvec[i]];
+   jj=jj+nregvec[i];
+  i=i+1; endo;
+  
+  bols=invpd(x'x)*(x'y);
+  e=y-x*bols;
+  u=(reshape(e,ny,nt))';
+  seps=u'u/nt;
+  sepsinv=invpd(seps);
+  q=sepsinv.*.eye(nt);
+  bgls=(invpd(x'q*x))*(x'q*y);   @ GLS Estimate of b @
+  vbgls=invpd(x'q*x);            @ Covariance Matrix of GLS Estimator @
+  e=y-x*bgls;
+  u=(reshape(e,ny,nt))';
+  seps=u'u/nt;  
+  
+  @ Form Covariance Matrix for Sample Covariance Matrix of errors @
+  y=miss(zeros(rows(u),nx1),0);
+  for t (1,rows(u),1);
+   tmp=u[t,.]'u[t,.];
+   y[t,.]=(vech(tmp))';
+  endfor;
+ {ybar,vybar}=hacm(y,0,1);
+ @ Compute Correlations and Covariance Matrix of Correlations @
+ corvec=zeros(nx2,1);   @ Vector for holding correlations @
+ varu=zeros(ns,1);      @ Vector for holding error variances @
+ g=zeros(nx2,nx1);      @ Gradient for Correlations @
+ gv=zeros(ns,nx1);      @ Gradient/Selection Matrix for error variances @
+ ii=1;
+ i=1; do while i <= ns;
+  nxi= i + (i*(i-1)/2);  
+  varu[i]=ybar[nxi];
+  gv[i,nxi]=1;
+  j=1; do while j <= i-1;
+   nxj= j + (j*(j-1)/2);
+   cij= j + (i*(i-1)/2);
+   sdi=sqrt(ybar[nxi]);
+   sdj=sqrt(ybar[nxj]);
+   covij=ybar[cij];
+   rhoij=covij/(sdi*sdj); 
+   corvec[ii]=rhoij; 
+   @ Gradient for Delta Method @
+    g[ii,nxi]=-0.5*(rhoij/ybar[nxi]);
+    g[ii,nxj]=-0.5*(rhoij/ybar[nxj]);
+    g[ii,cij]=1/(sdi*sdj);
+    ii=ii+1;
+  j=j+1; endo;
+ i=i+1; endo;
+ 
+ @ Delta-Method Covariance Matrix @
+ vcor=g*vybar*g';
+ v_varu=gv*vybar*gv';
+ if ni .== 1;
+  cor1=corvec;
+  vcor1=vcor;
+  varu1=varu;
+  v_varu1=v_varu;
+  bgls1=bgls;
+  vbgls1=vbgls;
+ elseif ni .== 2;
+  cor2=corvec;
+  vcor2=vcor;
+  varu2=varu;
+  v_varu2=v_varu;  
+  bgls2=bgls;
+  vbgls2=vbgls;
+ endif;   
+ni=ni+1; endo; 
+
+@ Correlations @
+difcor=cor2-cor1;
+vdif=vcor1+vcor2;
+sedif=sqrt(diag(vdif));
+secor1=sqrt(diag(vcor1));
+secor2=sqrt(diag(vcor2));
+
+
+@ Coefficients @
+bdif=bgls2-bgls1;
+vbdif=vbgls1+vbgls2;
+nn=nreg/ns;
+
+@ Variances @
+difvar=varu2-varu1;
+v_difvar=v_varu1+v_varu2;
+sedifvar=sqrt(diag(v_difvar));
+
+
+"VAR Results";
+i=1; do while i <= ns;
+ j=(i-1)*nn;
+ b=bdif[j+1:j+nn];
+ vb=vbdif[j+1:j+nn,j+1:j+nn];
+ b1=b[1:ownlag];
+ b2=b[ownlag+1:nn];
+ vb1=vb[1:ownlag,1:ownlag];
+ vb2=vb[ownlag+1:nn,ownlag+1:nn];
+ vbinv=invpd(vb);
+ vb1inv=invpd(vb1);
+ vb2inv=invpd(vb2);
+ testb=b'vbinv*b;
+ testb1=b1'vb1inv*b1;
+ testb2=b2'vb2inv*b2;
+ "Equation";
+ i;
+ tmp=sqrt(diag(vb));
+ "Coefficients, Periods 1 and 2, difference, se(dif), tstat for dif";
+ bgls1[j+1:j+nn]~bgls2[j+1:j+nn]~b~tmp~(b./tmp);
+ "";
+ "All Coefficients (teststat, df, chi-sq p-value, QLR P-value )";;
+ testb;;nn;;cdfchic(testb,nn);;pval_qlr(testb,nn,0.15);
+ "Own Lag Coefficients (teststat, df, chi-sq p-value, QLR P-value)";;
+ testb1;;ownlag;;cdfchic(testb1,ownlag);;pval_qlr(testb1,ownlag,0.15);
+ "Other Lag Coefficients (teststat, df, chi-sq p-value, QLR P-value)";;
+ testb2;;nn-ownlag;;cdfchic(testb2,nn-ownlag);;pval_qlr(testb2,nn-ownlag,0.15);
+ "Error Variance";;
+ tmp=difvar[i]/sedifvar[i];
+ testvar=tmp.^2;
+ df=1;
+ testvar;;df;;cdfchic(testvar,df);;pval_qlr(testvar,df,0.15);
+ "";
+i=i+1; endo;
+"";
+"Overall Test for Changes in Variances";;
+teststat=difvar'(invpd(v_difvar))*difvar;
+teststat;;ns;;cdfchic(teststat,ns);;pval_qlr(teststat,ns,0.15);
+"";"";
+"Correlation for Period 1 (SE), Correlation for Period 2 (SE)";
+i=1; do while i <= nx2;
+ format /rd 6,2;
+ cor1[i];;" (";;secor1[i];;"), ";;cor2[i];;" (";;secor2[i];;"), ";
+i=i+1; endo;
+"";
+
+"Differences in Correlations (SE)";
+tstat=difcor./sedif;
+tmp=tstat.^2;
+pvalue=cdfchic(tmp,1);
+ii=1;
+i=1; do while i <= ns;
+ j=1; do while j <= ns;
+  if j .< i;
+   difcor[ii];;" (";;sedif[ii];;"), ";;
+   ii=ii+1;
+  else;
+   " ,";;
+  endif;
+ j=j+1; endo;
+ "";
+i=i+1; endo;
+"";""; 
+"Overall Test for Changes in Correlations, DF, Pvalue";
+vdifinv=invpd(vdif);
+teststat=difcor'vdifinv*difcor;
+df=rows(difcor);
+teststat;;df;;cdfchic(teststat,df);
+output off;

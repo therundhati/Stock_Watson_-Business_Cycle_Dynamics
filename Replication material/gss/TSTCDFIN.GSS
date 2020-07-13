@@ -1,0 +1,83 @@
+
+rpath = "\\g7\\gss\\";
+
+@ -- Read in test CDF Files -- @
+@ Open Data Files @
+lname="" $+ rpath $+ "LCDF";   @ L-Test @
+open tl = ^lname for read;
+
+lname="" $+ rpath $+ "MWCDF";  @ Mean Wald @
+open tmw = ^lname for read;
+
+lname="" $+ rpath $+ "EWCDF";  @ Exponential Wald @
+open tew = ^lname for read;
+
+lname="" $+ rpath $+ "SWCDF";  @ Sup Wald @
+open tsw = ^lname for read;
+
+lname="" $+ rpath $+ "POI7";  @ POI Lambda=7 @
+open tp7 = ^lname for read;
+
+lname="" $+ rpath $+ "POI17";  @ POI Lambda=17 @
+open tp17 = ^lname for read;
+
+r1=readr(tl,1);
+pdvec=r1[1,2:cols(r1)];
+
+j=seekr(tl,2);
+j=seekr(tmw,2);
+j=seekr(tew,2);
+j=seekr(tsw,2);
+j=seekr(tp7,2);
+j=seekr(tp17,2);
+
+r1=readr(tl,1);
+lamdat=r1[1];
+cdfl=r1[.,2:cols(r1)];
+
+r1=readr(tmw,1);
+cdfmw=r1[.,2:cols(r1)];
+
+r1=readr(tew,1);
+cdfew=r1[.,2:cols(r1)];
+
+r1=readr(tsw,1);
+cdfsw=r1[.,2:cols(r1)];
+
+r1=readr(tp7,1);
+cdfp7=r1[.,2:cols(r1)];
+
+r1=readr(tp17,1);
+cdfp17=r1[.,2:cols(r1)];
+
+nrr=10;
+do until eof(tsw);
+ r1=readr(tl,nrr);
+ lamdat=lamdat|r1[.,1];
+ cdfl=cdfl|r1[.,2:cols(r1)];
+
+ r1=readr(tmw,nrr);
+ cdfmw=cdfmw|r1[.,2:cols(r1)];
+
+ r1=readr(tew,nrr);
+ cdfew=cdfew|r1[.,2:cols(r1)];
+
+ r1=readr(tsw,nrr);
+ cdfsw=cdfsw|r1[.,2:cols(r1)];
+
+ r1=readr(tp7,nrr);
+ cdfp7=cdfp7|r1[.,2:cols(r1)];
+
+ r1=readr(tp17,nrr);
+ cdfp17=cdfp17|r1[.,2:cols(r1)];
+endo;
+
+@ -- Adjust so that minimum of CDFs occur at lambda = 0 -- @
+
+aa=.9999999*minc(cdfl);cdfl[1,.]=aa';
+aa=.9999999*minc(cdfmw);cdfmw[1,.]=aa';
+aa=.9999999*minc(cdfew);cdfew[1,.]=aa';
+aa=.9999999*minc(cdfsw);cdfsw[1,.]=aa';
+aa=.9999999*minc(cdfp7);cdfp7[1,.]=aa';
+aa=.9999999*minc(cdfp17);cdfp17[1,.]=aa';
+

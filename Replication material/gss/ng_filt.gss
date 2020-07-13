@@ -1,0 +1,388 @@
+/* ng_filt.gss, 7/23/02, mww
+   non-gaussian filter 
+   TVP Estimates of AR Coefficients
+   (estimated jointly with variances)
+*/
+
+new;
+rndseed 2873456;
+library pgraph;
+graphset;
+outwidth 200;
+ofile="ng_filt.out";  @ Output File Name @
+iext="q50";           @ Data Extension -- input @
+nfy=1950;             @ First Year @
+nfp=1;                @ First Period of Year @
+nly=2002;             @ Last Year @
+nlp=4;                @ Last Period of Year @
+nper=4;               @ Number of Periods Per Year @
+dpath="c:\\g7\\data\\";  @ Data Path @
+savpath="c:\\g7\\gss\\fmt\\"; @ Save Path @
+missc=1.0e+032 ;           @ Missing Value Code in ASCII Files @
+narlag=4;                  @ Number of AR lags @
+smplv = (1953.0~2002.99); @ Sample Period -- note first narlage obs are lost @
+
+vague = 1000;
+ndraw1 = 400;   @ Number of draws of AR coefficients @
+ndraw2 = 50;    @ Number of draws of variances per draw of AR parameters @
+
+nperl=6;               @ Lower cutoff for bandpass @
+nperu=32;              @ Upper cutoff for bandpass @
+nord=50;               @ Number of Ordinates in this band @
+
+
+@ -- Parameters for log-chi-squared errors -- @
+r_p=.086;
+r_m1=-7.472;
+r_m2=-0.698;
+r_sig2=1.411;
+r_sig=sqrt(r_sig2);
+
+@ -- Parameters for RW Innovation Variance -- @
+tau1=.04;   @ SD regime 1 @
+tau2=.20;   @ SD regime 2 @
+q_p=.95;      @ Prob of Regime 1 @
+q1=tau1^2;
+q2=tau2^2;
+
+
+@ -- Parameters for RW Coefficient TVP --- @
+lam=7;     @ Standard Deviation of TVP is proportional to lam/T @
+
+small=1e-08;  @ Small number @
+
+dnobs=nper*(nly-nfy-1)+nlp+(nper+1-nfp);        @ - Number of Obs, data - @
+calvec=seqa(nfy+(nfp-1)/nper,1/nper,dnobs);     @ -- Calendar Vector -- @
+load path = ^dpath;
+
+#include fcst.prc;
+#include udatain.prc;
+#include yulewalk.prc;
+
+cname=
+"cn" $|
+"fr" $|
+"bd" $|
+"it" $|
+"jp" $|
+"uk" $|
+"us" ;
+
+let sname[1,2]=
+gdppc  5 ;
+ 
+@ Band Pass Parameters @
+nfl=2*pi/nperl;
+nfu=2*pi/nperu;
+step=(nfl-nfu)/(nord-1);
+wvec=seqa(nfu,step,nord);  
+       
+imark=1; do while imark <= rows(cname);
+ jmark=1; do while jmark <= rows(sname);
+  tcode=sname[jmark,2];
+  ystr="" $+ cname[imark,1] $+ sname[jmark,1] $+ "." $+ iext;
+  "Processing ";;$ystr;
+  ydata=udatain(ystr,missc,dnobs);
+  ytran=transx(ydata,tcode);
+
+  y=ydata;
+  ytran2=miss(zeros(rows(ydata),1),0);
+  if tcode .== 1;
+  endif;
+  if tcode .> 3;
+   y=100*ln(ydata);
+   ytran=100*ytran;
+  endif;
+
+  if (tcode .== 1) .or (tcode .== 4);
+   ytran2=y;
+  elseif (tcode .== 2) .or (tcode .== 5);
+   ytran2[5:rows(y)]=y[5:rows(y)]-y[1:rows(y)-4];
+  elseif (tcode .== 3) .or (tcode .== 6);
+   ytran2[6:rows(y)]=(y[6:rows(y)]-y[2:rows(y)-4])
+                   - (y[5:rows(y)-1]-y[1:rows(y)-5]);
+  endif;
+  @ -- Get Correct Sample Period -- @
+  ismpl = (calvec .>= smplv[1,1]-small) .* (calvec .<= smplv[1,2]+small);
+  t_total=rows(ismpl);  @ Find total number of Obs so that scaling is
+                          the same for all series @
+  
+  y=selif(ytran,ismpl);
+  cal=selif(calvec,ismpl);
+  ytran2=selif(ytran2,ismpl);
+  z=packr(cal~y~ytran2);
+  cal=z[.,1];
+  y=z[.,2];
+  ytran2=z[.,3];
+    
+  @ -- Standardize Y over this sample Period -- @
+  stdy=stdc(y);
+  meany=meanc(y);
+  y=(y-meany)./stdy;
+  
+  @ -- Construct Regressor Matrix -- @
+  x=miss(zeros(rows(y),narlag),0);
+  ii=1; do while ii <= narlag;
+   x[ii+1:rows(x),ii]=y[1:rows(y)-ii];
+  ii=ii+1; endo;
+  x=ones(rows(x),1)~x;
+  z=packr(cal~ytran2~y~x);
+  cal=z[.,1];
+  ytran2=z[.,2];
+  y=z[.,3];
+  x=z[.,4:cols(z)];
+  n=rows(cal);  
+
+  @ -- Compute some accumulation and difference Matrices -- @
+     @ Mapping from alpha(0), a(1), a(2) ,,, a(n) 
+       to  alpha(0), alpha(1), ... alpha(n) @
+       
+  bsum = eye(n+1);
+  i=2; do while i <= n+1;
+   bsum[i,1:i-1]=ones(1,i-1);
+  i=i+1; endo;
+  @ Mapping from  alpha(0), alpha(1), ... alpha(n) to 
+                  a(1), a(2) ,,, a(n)  @
+  adif=eye(n);
+  adif=zeros(n,1)~adif;
+  i=1; do while i <= n;
+   adif[i,i]=-1;
+  i=i+1; endo;  
+
+  @ Compute RW Covariance Matrix -- Scaled to Variance 1 @
+  rwcov=zeros(n,n);
+  for i (1,n,1);
+   for j (1,n,1);
+    rwcov[i,j]=minc(i|j);
+   endfor;
+  endfor;
+    
+  
+  @ -- Vectors For Saving Smoothed values of States and draws of SD -- @
+  save1=zeros(n,1);    @ Vector For Saving Std Devs of annual Difference @
+  save2=zeros(n,1);    @ Vector for Saving Std Devs of BP Levels @
+  
+  @ -- Estimate AR and Residuals -- @
+  b=invpd(x'x)*(x'y);
+  res=y-x*b;
+  resols=res;
+  arcoef=b[2:rows(b)];    @ OLS AR coefficients @
+  se_ols = sqrt(res'res/(rows(x)-cols(x)));  @ SE of OLS Regressions @
+  
+  @ TVP SE @
+  se_tvp = (lam/t_total)*se_ols;  @ Std Dev of change in RW coefficients @  
+  var_tvp = se_tvp.^2;      
+  
+    
+  @ -- step 0 -- initial values of indicator prob vectors -- @
+  r_pt = r_p*ones(n,1);
+  q_pt = q_p*ones(n,1);
+  vardraw = (se_ols.^2)*ones(n,1);  @ First Draw uses Constant Variance @
+
+
+  @ -- Compute Covariance Matrix of Regression Coefficients -- @
+  vbeta = vague*ones(n,n) + var_tvp*rwcov;  @ Covariance Matrix of 1 
+                                              block of Coefficients @
+
+  vy_reg = zeros(n,n);                      @ Variance of Y from
+                                              regression Part @                                              
+  i=1; do while i <= cols(x);
+    xi=x[.,i];
+    vby=vbeta.*xi';
+    svby = "vby_" $+ ftocv(i,2,0);
+    yy=varput(vby,svby);
+    vy_reg=vy_reg + (vbeta.*(xi*xi'));
+  i=i+1; endo;
+    diag_vyr = diag(vy_reg);  @ Diagonal elements @
+   
+
+  idraw1 = 1; do while idraw1 <= ndraw1;
+    print /flush;
+    ystr;;idraw1;;timestr(time);
+    
+    @ -- Carry Out TVP Estimation of Regression Coefficients -- @
+    diag_vy = diag_vyr + vardraw;
+    vy = diagrv(vy_reg,diag_vy);  @ Variance of Y @
+    trap 1;
+     vyi=invpd(vy);                @ Inverse of Variance @
+    trap 0;
+    if scalerr(vyi) ./= 0;
+     "vyi not PD ... skipping";
+     idraw1=idraw1-1;
+     goto skip;
+    endif;
+    bmean=zeros(n,cols(x));
+    i=1; do while i <= cols(x);
+     svby = "vby_" $+ ftocv(i,2,0);
+     vby=varget(svby);    
+     kgain=vby*vyi;
+     bmean[.,i]=kgain*y;
+     skgain = "kgain_" $+ ftocv(i,2,0);      
+     yy=varput(kgain,skgain);
+    i=i+1; endo;
+    covmat=zeros(n*cols(x),n*cols(x));
+    i=1; do while i <= cols(x);
+     j=1; do while j <= cols(x);
+      ii = (i-1)*n;
+      jj = (j-1)*n;
+      if i .== j;
+       covmat[ii+1:ii+n,jj+1:jj+n]=vbeta;
+      endif;
+     skgain = "kgain_" $+ ftocv(i,2,0);      
+     kgaini = varget(skgain);
+     svby = "vby_" $+ ftocv(j,2,0);
+     vbyj = varget(svby);
+     covmat[ii+1:ii+n,jj+1:jj+n]=covmat[ii+1:ii+n,jj+1:jj+n]-(kgaini*vbyj');
+    j=j+1; endo;
+   i=i+1; endo;
+   
+   @ -- Construct a draw of the regression coefficients -- @
+   trap 1;
+   ch=chol(covmat);
+   trap 0;
+    if scalerr(ch) ./= 0;
+     "covmat not PD .... skipping series";
+     goto serskip;
+    endif;
+   b_stoch = ch'rndn(rows(ch),1);
+   bm_stoch = (reshape(b_stoch,cols(x),n))';
+   bm = bmean+bm_stoch; 
+   res = y - sumc((x.*bm)');
+        
+    @ -- Data are ln of squares of ydata -- @
+    lnres2=ln(res.^2);
+
+
+    idraw2 = 1; do while idraw2 <= ndraw2;
+      @ -- Step 1 -- initial draws of Indicator Variables -- @
+      tmp=rndu(n,1);
+      ir=tmp .<= r_pt;
+      tmp=rndu(n,1);
+      iq=tmp .<= q_pt;
+
+
+      @ -- Step 2; compute system parameters given indicators -- @
+      mut = (ir*r_m1) + ((1-ir)*r_m2);
+      qt = (iq*q1) + ((1-iq)*q2);
+
+      @ -- Compute Covariance Matrix  -- @
+      vd=diagrv(eye(n+1),(vague|qt));
+      valpha=bsum*vd*bsum';
+      vy=valpha[2:n+1,2:n+1];
+      cy=valpha[1:n+1,2:n+1];
+      diagvy=diag(vy)+r_sig2;
+      vy=diagrv(vy,diagvy);
+      vyi=invpd(vy);
+      kgain=cy*vyi;
+
+      @ -- Compute draws of state and shocks -- @
+      ye=lnres2-mut;
+      ahat0=kgain*ye;
+      ahat1=ahat0[2:n+1];
+      vhat0=valpha-kgain*cy';
+      cvhat0=chol(vhat0);
+      adraw0=ahat0+cvhat0'rndn(n+1,1);
+      adraw1=adraw0[2:n+1];
+      edraw=lnres2-adraw1;
+      udraw=adraw0[2:n+1]-adraw0[1:n];
+
+      @ -- Compute Mixture Probabilities -- @
+      @ -- e shocks -- (Note sigma is the same) -- @
+      f1=exp(   (-0.5)* (((edraw-r_m1)./r_sig).^2)  );
+      f2=exp(   (-0.5)* (((edraw-r_m2)./r_sig).^2)  );
+      fe= r_p*f1 + (1-r_p)*f2;
+      r_pt=(r_p*f1)./fe;
+  
+      @ -- u shocks -- Means are both zero @
+      f1=(1/tau1)*exp(   (-0.5)* ((udraw./tau1).^2)  );
+      f2=(1/tau1)*exp(   (-0.5)* ((udraw./tau2).^2)  );
+      fu= q_p*f1 + (1-q_p)*f2;
+      q_pt=(q_p*f1)./fu;
+
+
+    
+      @ -- Compute Variance of AR Shocks and Variance of Annual Difs -- @
+      vardraw = exp(adraw1); @ Variance Draw @
+      ann_std = miss(zeros(n,1),1);
+      for jjj (1,n,1);
+       arcoef=bm[jjj,2:cols(bm)]';
+       @ -- Compute Variance of appropriate Transformed Series -- @
+       if (tcode .== 1) .or (tcode .== 4);
+        acv=yulewalk(arcoef,vardraw[jjj],0);
+        varann=acv[1];
+       elseif (tcode .== 2) .or (tcode .== 5);
+        acv=yulewalk(arcoef,vardraw[jjj],3);
+        varann=4*(acv[1]+.75*acv[2]+.50*acv[3]+.25*acv[4]);
+       elseif (tcode .== 3) .or (tcode .== 6);
+        acv=yulewalk(arcoef,vardraw[jjj],3);
+        varann=4*(acv[1]+.75*acv[2]+.50*acv[3]+.25*acv[4]);
+       endif;
+       if varann .< 0;
+        "Coefficient Draw in Non-Stationary Region -- redraw ";
+        "Varann =";;varann;
+        idraw1=idraw1-1;
+        goto skip;
+       endif;
+       ann_std[jjj]=sqrt(varann);
+      endfor;
+
+      @ -- Compute Variance of BP Levels -- @
+      if tcode ./= 5; "only implemented for tcode = 5"; stop; endif;
+      bp_std = miss(zeros(n,1),0);
+      splev = miss(zeros(n,nord),0);
+      rho=bm[.,2:cols(bm)];  @ AR Coefficients for each period @
+      vu=vardraw;            @ Variance for each Period @
+      for jw (1,nord,1); 
+       w=wvec[jw];
+       let im = 0+1i;
+       z=exp(-w*im);
+       dnm=ones(n,1);
+       irho=1; do while irho <= cols(rho);
+        dnm=dnm-(rho[.,irho]*(z.^irho));
+       irho=irho+1; endo;
+       spdiv=vu.* ((abs(ones(n,1)./dnm)).^2);
+       az=1-z;               @ az is first difference filter @
+       azi=inv(az);          @ azi is the accumulation operator @
+       a=azi*azi';
+       splev[.,jw]=a*spdiv;       
+      endfor;   
+      tmp=meanc(splev');
+      bp_std=sqrt( ((nfl-nfu)/pi) * tmp);    
+      tmp=packr(bp_std);
+      if minc(tmp) .< 0; 
+        "Coefficient Draw in Non-Stationary Region -- redraw ";
+        "BP std =";;minc(tmp);
+        idraw1=idraw1-1;
+        goto skip;
+       endif;      
+      save1=save1+ann_std;
+      save2=save2+bp_std;
+   idraw2 = idraw2+1; endo;
+   
+   skip:
+   
+  idraw1=idraw1+1; endo;
+  serskip:
+  
+  stdann=save1/(ndraw1*ndraw2);
+  stdann=stdann*stdy;    @ -- Rescale -- @
+  stdbp=save2/(ndraw1*ndraw2);
+  stdbp=stdbp*stdy;      @ -- Rescale -- @
+
+  save path = ^savpath;
+  s1 = "stdann_tvp_40_" $+ cname[imark,1] $+ sname[jmark,1] $+ "_" $+ ftocv(ndraw1,6,0);
+  tmp=cal~ytran2~stdann~stdbp;
+  save ^s1=tmp;
+  print /flush s1;
+  graphset;
+  strtit="" $+ cname[imark,1] $+ sname[jmark,1];
+  title(strtit);
+  xlabel("Date");
+  ylabel(" ");
+  ytmp=ytran2~stdann;
+  xtics(1960,2005,5,1);
+  xy(cal,ytmp);
+  
+ jmark=jmark+1; endo;
+imark=imark+1; endo;
+

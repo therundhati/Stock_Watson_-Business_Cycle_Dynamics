@@ -1,0 +1,41 @@
+/*
+    fac_rewrite.gss
+    rewrite factors so that they can be read into RATS
+*/
+new;
+library pgraph;
+graphset;
+outwidth 200;
+ofile="fac_rewrite.out";  @ Output File Name @
+iext="q50";            @ Data Extension -- input @
+nfy=1950;              @ First Year @
+nfp=1;                 @ First Period of Year @
+nly=2002;              @ Last Year @
+nlp=4;                 @ Last Period of Year @
+nper=4;                       @ Number of Periods Per Year @
+dpath="c:\\g7\\data\\";       @ Data Path @
+savpath="c:\\g7\\gss\\fmt\\"; @ Save Path @
+missc=1.0e+032;        @ Missing Value Code in ASCII Files @
+
+
+smplvec = 
+(1960.0~2003) |
+(1960.0~1983.99) |
+(1984.0~2003);
+
+dnobs=nper*(nly-nfy-1)+nlp+(nper+1-nfp);        @ - Number of Obs, data - @
+calvec=seqa(nfy+(nfp-1)/nper,1/nper,dnobs); 
+
+ni=1; do while ni <= rows(smplvec);
+ @ Construct Sample String @
+ smplstr = ftocv(smplvec[ni,1],4,0) $+ ftocv(smplvec[ni,2],4,0);
+ @ Load the Series @
+  sstr=savpath $+ "fachat_" $+ smplstr; 
+  load fachat=^sstr;
+  fachat=missrv(fachat,missc);
+  sstr=dpath $+ "fachat_" $+ smplstr;
+  output file = ^sstr reset; output on;
+  format /ro 16,7;
+  fachat;
+  output off;  
+ni=ni+1; endo;   

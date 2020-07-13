@@ -1,0 +1,579 @@
+/* Table2.gss, mww, 3/1/02  revised 7/22/02
+   Univariate Analysis 2
+   Break Test Results
+*/
+
+new;
+library pgraph;
+outwidth 200;
+ofile="Table3.out";     @ Output File Name @
+iext="q50";            @ Data Extension -- input @
+nfy=1950;               @ First Year @
+nfp=1;                  @ First Period of Year @
+nly=2002;               @ Last Year @
+nlp=4;                 @ Last Period of Year @
+nper=4;                @ Number of Periods Per Year @
+dpath="c:\\g7\\data\\";  @ Data Path @
+missc=1.0e+032 ;           @ Missing Value Code in ASCII Files @
+
+size = .33;           @ -- Size for CI -- @
+pretst = .05;         @ -- Pre-test size for displaying break CI -- @ 
+
+narlag=4;                  @ Number of AR lags @
+
+smplv=(1960.0~2002.99);
+
+
+small=1e-08;  @ Small number @
+big=1e+08;    @ Big number @
+
+dnobs=nper*(nly-nfy-1)+nlp+(nper+1-nfp);        @ - Number of Obs, data - @
+calvec=seqa(nfy+(nfp-1)/nper,1/nper,dnobs);     @ -- Calendar Vector -- @
+load path = ^dpath;
+
+cname=
+"cn" $|
+"fr" $|
+"bd" $|
+"it" $|
+"jp" $|
+"uk" $|
+"us";
+
+let sname[1,2]=
+gdppc  5    
+;
+
+#include fcst.prc;
+#include udatain.prc;
+#include pv_sup.prc;
+
+load path = \g7\gss;
+load breakpdf = trbrkcdf;     @ CDF For Breaks -- 
+                                    col 1 percentile
+                                    col 2 quantile for break in constant
+                                    col 3 quantile for t regressor
+                                  @
+
+load path =^dpath;
+library pgraph;
+graphset;
+
+output file = ^ofile reset; output on;
+
+ic = 1; do while ic <= rows(cname);
+
+resltvec=zeros(rows(sname),18);
+resltvec=miss(resltvec,0);
+
+
+i1=ones(dnobs,1);
+
+i=1; do while i <= rows(sname);
+  tcode=sname[i,2];
+  ystr="" $+ cname[ic,1] $+ sname[i,1] $+ "." $+ iext;
+  ydata=udatain(ystr,missc,dnobs);
+  ytran=transx(ydata,tcode);
+  
+    @ -- Step -1 ... Break Test for Absolute Value of Series -- @
+  ismpl = (calvec .>= smplv[1,1]-small) .* (calvec .<= smplv[1,2]+small);
+  z=selif(ytran~calvec,ismpl);
+  z=packr(z);
+  y=z[.,1];
+  y=abs(y-meanc(y));
+  calvecp=z[.,cols(z)]; 
+  resltvec[i,17]=calvecp[1];
+  resltvec[i,18]=calvecp[rows(calvecp)];
+  x=ones(rows(y),1);
+  @ -- Find Break Date and QLR -- @
+    {kest,ss}=splitest(y,x,0,.15);
+
+    
+    @ kest is the LS estimate of the break date
+      under homoskedasticity (the null), it is also the armax of the 
+      QLR statistic ... thus for simplicity the QLR stat is computed
+      at this point only @ 
+    tr=seqa(1,1,rows(y));
+    d=(tr.<=kest);
+    y1=selif(y,d);
+    x1=selif(x,d);
+    y2=delif(y,d);
+    x2=delif(x,d);
+    mu1=meanc(y1);
+    mu2=meanc(y2);
+    delta=mu2-mu1;
+    e1=y1-mu1;
+    e2=y2-mu2;
+    @ -- AR Estimates Var(mu1) and Var(mu2) -- @
+    z1=e1[narlag+1:rows(e1)];
+    z2=e2[narlag+1:rows(e2)];
+    x1=zeros(rows(z1),narlag);
+    x2=zeros(rows(z2),narlag);
+    ii=1; do while ii <= narlag;
+     x1[.,ii]=e1[narlag+1-ii:rows(e1)-ii];
+     x2[.,ii]=e2[narlag+1-ii:rows(e2)-ii];
+    ii=ii+1; endo;
+    b1=z1/x1;
+    b2=z2/x2;
+    ee1=z1-x1*b1;
+    ee2=z2-x2*b2;
+    vee1=ee1'ee1/(rows(x1)-cols(x1));
+    vee2=ee2'ee2/(rows(x2)-cols(x2)); 
+    omega1=big;
+    omega2=big;
+    if abs(sumc(b1)) .< 1.0;
+     omega1=vee1/((1-sumc(b1))^2);
+    endif;
+    if abs(sumc(b2)) .< 1.0;    
+     omega2=vee2/((1-sumc(b2))^2); 
+    endif;
+    vmu1=omega1/(rows(y1));
+    vmu2=omega2/(rows(y2));
+    fstat=(delta^2)/(vmu1+vmu2);
+    apv=pval_qlr(fstat,1,.15);
+    resltvec[i,9]=apv;
+
+  
+    @ -- Construct CI for Break -- @
+   if apv .<= pretst;
+    delta=mu2-mu1;
+    q1=1;
+    q2=1;
+    xsi=q2/q1;
+    phi=omega2/omega1;
+    {c1,c2}=bai_qnt(xsi,phi,size);
+    ll=(delta^2)*(1/omega1); 
+    k1=kest-1-ceil(c2/ll);
+    k2=kest+1-floor(c1/ll);
+    k1=maxc(k1|1);
+    k2=minc(k2|rows(y));
+    resltvec[i,10]=calvecp[k1];
+    resltvec[i,11]=calvecp[kest];   
+    resltvec[i,12]=calvecp[k2];
+   endif;
+   @ "absy";;resltvec[i,9:12];    @
+ 
+
+ 
+  @ -- Setup for Univariate Autoregression -- @
+  xlag=miss(zeros(dnobs,narlag),0);
+  ilag=1; do while ilag <= narlag;
+   xlag[ilag+1:dnobs,ilag]=ytran[1:dnobs-ilag];
+  ilag=ilag+1; endo;
+       
+  zdata=ytran~i1~xlag;
+  @ -- Construct Break Test Results -- @
+  ismpl = (calvec .>= smplv[1,1]-small) .* (calvec .<= smplv[1,2]+small);
+  z=selif(zdata~calvec,ismpl);
+  z=packr(z);
+  y=z[.,1];
+  const=z[.,2]; 
+  xlag=z[.,3:cols(z)-1];
+  x=const~xlag;
+  calvecp=z[.,cols(z)];
+
+  @ -- Step 1 -- Estimate Mean Break Dates by LS -- Compute Residuals -- @
+ 
+   @ -- Mean Parameters -- @
+    {kest,ss}=splitest(y,x,0,.15);
+    tr=seqa(1,1,rows(y));
+    d=(tr.<=kest);
+    y1=selif(y,d);
+    x1=selif(x,d);
+    y2=selif(y,1-d);
+    x2=selif(x,1-d);
+    @ Regime 1 Estimates @
+    rho1=y1/x1;
+    e1=y1-x1*rho1;
+    @ Regime 2 Estimates @
+    rho2=y2/x2;
+    e2=y2-x2*rho2;
+    embreak=e1|e2;  @ Save for use in variance test @
+ 
+  @ -- Step 2 -- Break Tests and CI for Variance  -- @
+  
+   @ -- Construct Covariance Matrix of abs e -- @
+   ae=abs(embreak);
+   aem=ae-meanc(ae)';
+   sig0=aem'aem/rows(aem);
+   t=rows(aem);
+   c=ones(t,1);
+   {kest,ss}=splitest(ae,c,0,.15);
+   
+  @ -- Estimate Break Dates and Form CIs -- @
+   m1=meanc(ae[1:kest,.]);
+   m2=meanc(ae[kest+1:t,.]);
+   aem1=ae[1:kest,.]-m1';
+   aem2=ae[kest+1:t,.]-m2';
+   omega1=aem1'aem1/rows(aem1);
+   omega2=aem2'aem2/rows(aem2);   
+
+   @ Confidence Interval for Breakdate @
+    @ ... Use Hetero Robust Inference Here ... @
+   delta=m1-m2;
+   xsi=1;
+   phi=(delta'omega2*delta)/(delta'omega1*delta);
+   {c1,c2}=bai_qnt(xsi,phi,size);
+   ll=(delta'(invpd(sig0))*delta); 
+   k1=kest-1-ceil(c2/ll);
+   k2=kest+1-floor(c1/ll);
+   k1=maxc(k1|1);
+   k2=minc(k2|rows(ae));
+   @ -- save -- @
+   skest=kest;
+   sk1=k1;
+   sk2=k2;
+   @ phi~xsi~calvecp[sk1];;calvecp[skest];;calvecp[sk2]; @
+   
+   @ -- Compute Std. Dev. of regression errors over subsamples --- @
+   sig1=stdc(embreak[1:skest,.]);
+   sig2=stdc(embreak[skest+1:t,.]);   
+
+   @ -- Break Test For Variance -- @
+   {lm,lmr,lsbreak}=qlra(ae,0,c,.15,0);
+   
+   spv=pv_sup(lm,1,.15);   @ Pvalue .. non-hetero robust under ho @
+   @ spv; @
+   
+
+   
+  @ Step 3 ... compute break tests and CIs for mean ... @
+
+
+     
+   @ Step 3.1 ... Weighted least Squares Transformation ... @
+    ys=y;
+    xs=x;
+    ys[1:skest,.]=ys[1:skest,.]./sig1;
+    ys[skest+1:rows(ys),.]=ys[skest+1:rows(ys),.]./sig2;    
+    xs[1:skest,.]=xs[1:skest,.]./sig1;
+    xs[skest+1:rows(xs),.]=xs[skest+1:rows(xs),.]./sig2; 
+  @ -- Estimate Break Dates and Form CIs -- @
+  @ -- Mean Parameters -- @
+   {kest,ss}=splitest(ys,xs,0,.15);
+   tr=seqa(1,1,rows(ys));
+   d=(tr.<=kest);
+   y1=selif(ys,d);
+   x1=selif(xs,d);
+   t1=rows(y1);
+   y2=selif(ys,1-d);
+   x2=selif(xs,1-d);
+   t2=rows(y2);
+
+   @ Regime 1 Estimates @
+   rho1=y1/x1;
+   e1=y1-x1*rho1;
+   ee1=e1'e1;
+   sig1=ee1/(t1-cols(xs)-1);
+   q1=moment(x1,0);
+   xx=invpd(q1);
+   q1=q1/t1;
+   xe1=x1.*e1;
+   omega1=moment(xe1,0);
+   omega1=omega1/t1;
+
+   @ Regime 2 Estimates @
+   rho2=y2/x2;
+   e2=y2-x2*rho2;
+   ee2=e2'e2;
+   sig2=ee2/(t2-cols(xs)-1);
+   q2=moment(x2,0);
+   q2=q2/t2;
+   xe2=x2.*e2;
+   omega2=moment(xe2,0);
+   omega2=omega2/t2;   
+   
+   @ Pooled Estimates of Moments @
+   q=moment(xs,0);
+   q=q/rows(xs);
+   e=e1|e2;
+   ee=e'e;
+   sig=ee/(rows(xs)-cols(xs)-1);  
+   xe=xs.*e;
+   omega=moment(xe,0);
+   omega=omega2/rows(xs);       
+  
+   @ Confidence Interval for Breakdate @
+   /* -- Calculation allowing Heteroskedasticity at break point -- */
+   delta=rho2-rho1;
+   xsi=(delta'q2*delta)/(delta'q1*delta);
+   phi=(delta'omega2*delta)/(delta'omega1*delta);
+   {c1,c2}=bai_qnt(xsi,phi,size);
+   l1=(delta'q1*delta);
+   l2=(delta'omega1*delta);
+   ll=(l1*l1)/l2;      
+   k1=kest-1-ceil(c2/ll);
+   k2=kest+1-floor(c1/ll);
+   k1=maxc(k1|1);
+   k2=minc(k2|rows(y));
+   @ -- save -- @
+   mkesth=kest;
+   mk1h=k1;
+   mk2h=k2;
+   @ phi~xsi~calvecp[mk1h];;calvecp[mkesth];;calvecp[mk2h]; @
+    
+   /* -- Calculation Assuming Homoskedasticity across Break Point -- */
+   delta=rho2-rho1;
+   xsi=1;
+   phi=1;
+   {c1,c2}=bai_qnt(xsi,phi,size);
+   l1=(delta'q*delta);
+   l2=(delta'omega*delta);
+   ll=(l1*l1)/l2; 
+   k1=kest-1-ceil(c2/ll);
+   k2=kest+1-floor(c1/ll);
+   k1=maxc(k1|1);
+   k2=minc(k2|rows(y));
+   @ -- save -- @
+   mkest=kest;
+   mk1=k1;
+   mk2=k2;
+   @ phi~xsi~calvecp[mk1];;calvecp[mkest];;calvecp[mk2];  @ 
+   
+   @ -- Mean Break Test -- @
+   {lm,lmr,lsbreak}=qlra(ys,0,xs,.15,0);
+   mkestr=lsbreak;
+   mpv=pv_sup(lm,cols(x),.15);  
+   mpvr=pv_sup(lmr,cols(x),.15);
+   @ mpv;;mpvr;; @
+   
+     
+   resltvec[i,1]=mpvr;  @ Cond. Hetero-Robust Mean Break PValue ... @
+   resltvec[i,2]=spv;  @ Hom. break PV for variance @
+   if mpvr .<= pretst;
+    resltvec[i,3]=calvecp[mk1];
+    resltvec[i,4]=calvecp[mkest];   
+    resltvec[i,5]=calvecp[mk2];
+   endif;   
+   if spv .<= pretst;
+    resltvec[i,6]=calvecp[sk1];
+    resltvec[i,7]=calvecp[skest];   
+    resltvec[i,8]=calvecp[sk2];
+   endif;
+   
+   
+   
+   @ -- Compute Tests for Trend in Variance -- @
+   y=abs(embreak);   @ absolute value of AR residuals @
+   ty=rows(y);
+   t=seqa(1,1,ty);
+   c=ones(ty,1);
+   x=c~t;
+   xxi=invpd(x'x);
+   b=xxi*(x'y);
+   u=y-x*b;
+   varu=u'u/(rows(x)-cols(x));
+   ftrend=(b[2]^2)/(varu*xxi[2,2]);
+   resltvec[i,13]=ftrend;
+   
+   @ -- Compute Trend + Constant Break Model -- @
+   n1=ceil(.15*ty);
+   n2=floor(.85*ty);
+   f1=zeros(ty,1);
+   f2=zeros(ty,1);
+   ssr=big*ones(ty,1);
+   j=n1; do while j <= n2;
+    a=t .<= j;
+    x=a~t~c;
+    xxi=invpd(x'x);
+    b=xxi*(x'y);
+    u=y-x*b;
+    varu=u'u/(rows(x)-cols(x));
+    ssr[j]=varu;    
+    fstat=(b.^2)./(varu*diag(xxi));
+    f1[j]=fstat[1];
+    f2[j]=fstat[2];
+    
+    @ if j .== 94; stop; endif; @
+    
+   j=j+1; endo;
+   ii=maxindc(f1);
+   fstat1=f1[ii];         @ Break Date Test Statistic @
+   fstat2=f2[ii];         @ Trend Test Statistic @
+   kbreak2=minindc(ssr);  @ LS Break @
+   ii=minindc(abs(breakpdf[.,2]-fstat1));
+   pvfstat1=1-breakpdf[ii,1];
+   if fstat1 .> breakpdf[rows(breakpdf),2]; pvfstat1 = 0; endif;
+   ii=minindc(abs(breakpdf[.,3]-fstat2));
+   pvfstat2=1-breakpdf[ii,1]; 
+   if fstat2 .> breakpdf[rows(breakpdf),3]; pvfstat2 = 0; endif;  
+   resltvec[i,14]=pvfstat1;
+   resltvec[i,15]=pvfstat2;
+   if pvfstat1 .<= pretst;
+     resltvec[i,16]=calvecp[kbreak2]; 
+   endif;
+   
+               
+   bottom:
+  i=i+1; endo;
+
+
+outwidth 200;
+"";"";
+"Results for Country ";;cname[ic,1];
+i=1; do while i <= rows(sname);
+ format /rd 8,0; $sname[i,1];;",";;
+ format /rd 8,2; $datecv(resltvec[i,17]);;"-";;$datecv(resltvec[i,18]);;",";;
+ format /rd 5,2; resltvec[i,1];;",";;
+ format /rd 8,2; $datecv(resltvec[i,4]);;",";;
+ format /rd 8,2; $datecv(resltvec[i,3]);;"-";;$datecv(resltvec[i,5]);;",";;
+ format /rd 5,2; resltvec[i,2];;",";;
+ format /rd 8,2; $datecv(resltvec[i,7]);;",";;
+ format /rd 8,2; $datecv(resltvec[i,6]);;"-";;$datecv(resltvec[i,8]);;",";;
+ format /rd 5,2; resltvec[i,15];;",";;
+ format /rd 8,2; resltvec[i,14];;",";;
+ format /rd 8,2; $datecv(resltvec[i,16]);
+i=i+1; endo;  
+
+ic=ic+1; endo;
+
+output off;
+  
+  
+
+
+@ -- Text Conversion -- @
+proc(1) = datecv(x);
+
+local yrd, mtd, mts, yrs, xstr;
+
+xstr=" . ";
+if ismiss(x); retp(xstr); endif;
+
+yrd=floor(x);
+mtd=x-yrd;
+if mtd .<= .01; 
+ mts = "1"; 
+elseif (mtd .< .26) .and (mtd .> .24);
+ mts = "2";
+elseif (mtd .< .51) .and (mtd .> .49);
+ mts = "3";
+elseif (mtd .> .52);
+ mts = "4";
+endif;
+yrs = ftocv(yrd,4,0);
+xstr=yrs $+ ":" $+ mts;
+retp(xstr);
+endp;
+
+
+  
+
+@ ------------------------------------- @
+proc (2) = bai_qnt(xsi,phi,alpha);
+
+/* Compute CI for break date following Bai (1997) Restat
+   Code supplied by Bruce Hansen (thanks!)
+   2/28/02
+*/
+
+local xp,a,b,c,d,x1,x2,g1,g2,x,g,c1,c2;
+xp=xsi/phi;
+a=xp*(1+xp)/2;
+b=1/2+xp;
+c=phi*(phi+2*xsi)/(phi+xsi)/xsi;
+d=((phi+2*xsi)^2)/xsi/(phi+xsi);
+x1=seqa(-100,.01,10000);
+x2=seqa(.01,.01,10000);
+g1=-sqrt(-x1/(2*pi)).*exp(x1/8)-c.*exp(-x1*a).*cdfn(-b.*sqrt(-x1))
++(d-2-x1/2).*cdfn(-sqrt(-x1)/2);
+a=(phi+xsi)/2;
+b=(2*phi+xsi)/2/sqrt(phi);
+c=xsi*(2*phi+xsi)/phi/(phi+xsi);
+d=((2*phi+xsi)^2)/phi/(phi+xsi);
+g2=1+xsi.*sqrt(x2/(2*pi*phi)).*exp(-x2*xsi*xsi/8/phi)
++c*exp(x2*a).*cdfn(-sqrt(x2)*b)
++(-d+2-x2*xsi*xsi/2/phi).*cdfn(-sqrt(x2/phi)*xsi/2);
+x=x1|x2;
+g=g1|g2;
+c1=x[maxindc(g.>(alpha/2))];
+c2=x[maxindc(g.>(1-alpha/2))];
+retp(c1,c2);
+endp;
+
+@ ------------------------------------- @
+proc (2) = splitest(y,x,s,_trim);
+/* Compute SSR for Different Break Dates 
+   Code supplied by Bruce Hansen (thanks!)
+   2/28/02
+*/
+local t,t1,t2,e,ss,xs,i,d,z,u,kest,tr;
+t=rows(y);
+t1=round(t*_trim);
+t2=round(t*(1-_trim));
+e=y-x*(y/x);
+tr=seqa(1,1,t);
+ss=zeros(t,1)+e'e;
+if s.==0; xs=x; else; xs=x[.,s]; endif;
+i=t1; do while i<=t2;
+  d=(tr.>i);
+  z=xs.*d;
+  z=z-x*(z/x);
+  u=e-z*(e/z);
+  ss[i]=u'u;
+i=i+1;endo;
+kest=minindc(ss);
+retp(kest,ss);
+endp;
+@ --------------------------------------------- @
+proc(1) = pvsup_bs(qlrstat,x,em,ccut);
+
+/* -- Compute Pvalue for QLR using Hansen' Fixed Regressor
+      Heteroskedastic Bootstrap (J of Emt, 1997)
+      
+      This is a modifed version of the program in 
+      Hansen's distribution disk
+      
+      qlrstat == qlrs_statistic
+      x == regressors
+      em == residual from fitted model with break estimated
+            by least squares
+      ccut == trimming factor   
+*/
+
+local r1, r2, n, n1, n2, xx, xxi, supfh, ri, u, uh, euh, eeh, ffh, snh, mf,
+      mif, msif, ib, xif, ximf, qf, ftf, k;
+
+r1=10;
+r2=500;
+n=rows(x);
+k=cols(x);
+n1=ceil(ccut*n);
+n2=floor((1-ccut)*n);
+xx=moment(x,0);
+xxi=invpd(xx);
+      
+supfh=zeros(r2,r1);
+ri=1; do while ri<=r1;
+
+    u   = rndn(n,r2);
+    uh  = u.*em;  @ this is for heter robust -- set em = 1 for homo @
+    euh = uh - x*xxi*(x'uh);
+    eeh = sumc(euh.^2);
+    ffh = zeros(n,r2);
+    snh = x[1:n1-1,.]'euh[1:n1-1,.];
+    mf = moment(x[1:n1-1,.],0);
+    mif = invpd(mf);
+    msif = invpd(xx-mf);
+
+    ib = n1; do while ib <= n2;
+      xif  = x[ib,.]';
+      ximf = xif'mif;
+      mif  = mif - (ximf'ximf)/(1+ximf*xif);
+      ximf = xif'msif;
+      msif = msif + (ximf'ximf)/(1-ximf*xif);
+      snh  = snh + xif*euh[ib,.];
+      qf   = sumc(snh.*(msif*xx*mif*snh));
+      ffh[ib,.] = (qf./(eeh-qf))';
+    ib = ib+1; endo;
+
+    ftf = ffh[n1:n2,.]*(n-k*2);
+    supfh[.,ri] = (maxc(ftf) .> qlrstat);
+
+ri=ri+1;endo;
+
+supfh = meanc(meanc(supfh));
+
+retp(supfh);
+endp;
+

@@ -1,0 +1,112 @@
+/*
+    ar_exp.gss, 5/8/03, mww
+    Compute descriptive statistics from AR
+    Exponentially downweighted data
+    Save sum of AR Coefficients and SD of errors
+*/
+new;
+library pgraph;
+graphset;
+outwidth 200;
+ofile="ar_exp.out";  @ Output File Name @
+iext="q50";            @ Data Extension -- input @
+nfy=1950;              @ First Year @
+nfp=1;                 @ First Period of Year @
+nly=2002;              @ Last Year @
+nlp=4;                 @ Last Period of Year @
+nper=4;                       @ Number of Periods Per Year @
+dpath="c:\\g7\\data\\";       @ Data Path @
+savpath="c:\\g7\\gss\\fmt\\"; @ Save Path @
+missc=1.0e+032;        @ Missing Value Code in ASCII Files @
+ownlag=4;              @ number of own lags in VAR @
+
+disc=0.97;             @ discount factor @
+
+efy=1965;              @ First Year for estimation @
+efp=1;                 @ First Period for estimation @
+ely=1995;              @ Last Year for estimation @
+elp=4;                 @ Last Period for estimation @
+
+small=1.0e-06;
+
+dnobs=nper*(nly-nfy-1)+nlp+(nper+1-nfp);        @ - Number of Obs, data - @
+calvec=seqa(nfy+(nfp-1)/nper,1/nper,dnobs);     @ -- Calendar Vector -- @
+nfirst=nper*(efy-nfy-1)+efp+(nper+1-nfp);       @ -- index of first estimation period -- @
+nlast=nper*(ely-nfy-1)+elp+(nper+1-nfp);        @ -- index of last estimation period -- @
+
+load path = ^dpath;
+
+#include fcst.prc;
+#include udatain.prc;
+#include spmodh.prc;
+
+cname=
+"cn" $|
+"fr" $|
+"bd" $|
+"it" $|
+"jp" $|
+"uk" $|
+"us" ;
+
+ns=rows(cname);  @ Number of Series @
+
+output file = ^ofile reset; output on;
+outwidth 200;
+format /ro 16,6;
+
+@ .. Read in Series @
+s=miss(zeros(dnobs,ns),0);
+imark=1; do while imark <= ns;
+ ystr="" $+ cname[imark,1] $+ "gdppc_sm." $+ iext;
+ ydata=udatain(ystr,missc,dnobs);
+ ytran=ydata;    @ Note ... data are already in first differences (detrended) @ 
+ s[.,imark]=ytran;
+imark=imark+1; endo;
+
+@ Matrices for Saving Results @
+sumar=miss(zeros(dnobs,ns),0);               @ Sum of AR Coefficients @
+sdar=miss(zeros(dnobs,ns),0);                @ SD of AR errors @
+
+@ Construct sequence of discounts factors @
+dvec=seqm(1.0,disc,dnobs);
+
+i=1; do while i <= ns;
+ y=s[.,i];
+ 
+ @ Lags @
+ x=miss(zeros(dnobs,ownlag),0);
+ ilag=1; do while ilag <= ownlag;
+  x[ilag+1:dnobs,ilag]=y[1:dnobs-ilag];
+ ilag=ilag+1; endo;
+ 
+ n=nfirst; do while n <= nlast;
+  j1=dnobs-n+1;
+  dn=rev(dvec[2:n])|dvec[1:j1];
+  @ Choose Observations @
+  tmp=packr(y~x~dn);
+  yt=tmp[.,1];
+  xt=tmp[.,2:cols(tmp)-1];
+  dnt=tmp[.,cols(tmp)];
+  dnt=dnt/meanc(dnt);
+ 
+  
+  @ Step 1: Form y and x matrix for stacked system @
+  yt=yt.*dnt;
+  xt=xt.*dnt;
+  b=(invpd(xt'xt))*(xt'yt);
+  e=yt-xt*b;
+  ve=e'e/rows(e);
+  sumar[n,i]=sumc(b);
+  sdar[n,i]=400*sqrt(ve); 
+ n=n+1; endo;
+i=i+1; endo;
+
+@ Save Results @
+save path = ^savpath;
+str="sumar_exp";
+tmp=calvec~sumar;
+save ^str=tmp;
+str="sdar_exp";
+tmp=calvec~sdar;
+save ^str=tmp;

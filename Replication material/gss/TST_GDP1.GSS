@@ -1,0 +1,264 @@
+/* tst_gdp.gss
+   Univariate Models -- Construct Robust Test Statistic
+   and Robust SE's
+   Robustification by Prefiltering
+   Compute Results for all Countries 
+*/
+new;
+library pgraph;
+graphset;
+output file = tst_gdp1.out reset; output on;
+"Results from tst_gdp1.gss";
+datestr(date);
+timestr(time);"";"";
+
+#include pval.prc;
+#include rwkfilt.prc;
+#include rwksmth.prc;
+#include poist.prc;
+#include fcst.prc;
+#include udatain.prc;
+
+
+@ -- Read in test CDF Files -- @
+#include tstcdfin.gss;
+
+
+iext="q50";           @ Data Extension -- input @
+nfy=1950;             @ First Year @
+nfp=1;                @ First Period of Year @
+nly=2002;             @ Last Year @
+nlp=4;                @ Last Period of Year @
+nper=4;               @ Number of Periods Per Year @
+dpath="c:\\g7\\data\\";  @ Data Path @
+missc=1.0e+032;      @ Missing Value Code in ASCII Files @
+nlag=4;              @ Number of lags in AR @
+
+ifirst=1960.0;
+ilast=2003.0;
+
+small = 1.0e-06;
+big = 1.0e+06;
+
+dnobs=nper*(nly-nfy-1)+nlp+(nper+1-nfp);        @ - Number of Obs, data - @
+calvec=seqa(nfy+(nfp-1)/nper,1/nper,dnobs);     @ -- Calendar Vector -- @
+load path = ^dpath;
+
+
+cname=
+"cn" $|
+"fr" $|
+"bd" $|
+"it" $|
+"jp" $|
+"uk" $|
+"us" ;
+
+
+ns=rows(cname);  @ Number of Series @
+
+@ .. Read in Series @
+ismpl = (calvec .>= ifirst-small) .* (calvec .<= ilast-small);
+tr=seqa(1,1,dnobs); 
+imark=1; do while imark <= rows(cname);
+ output off;
+ output file = tst_gdp1.out; output on;
+ ystr="" $+ cname[imark,1] $+ "gdppc." $+ iext;
+ ydata=udatain(ystr,missc,dnobs);
+ ytran=transx(ydata,5); 
+ "";"";"";"";"Results for Series ";;cname[imark,1];
+ z=selif(ytran~calvec~tr,ismpl);
+ z=packr(z);
+ x=z[.,1];
+ cal=z[.,2];
+ trp=z[.,3];
+ "Available Data";;cal[1];cal[rows(cal)];
+ nobs=rows(x);
+ "nobs";;nobs;
+ 
+ title(cname[imark]);
+ xy(cal,x);
+ wait;
+
+@ -- Construct estimate of LR and SR Variance -- @
+"Sample Mean of Series ";;meanc(x);
+"Sample Standard Deviation of Series ";;stdc(x);
+
+
+@ -- AR(nlag) model -- @
+xa=x-meanc(x);  @ Step 1 -- OLS, Here Demeaning @
+
+  @ Step 2 -- AR Estimation -- @
+y=xa[nlag+1:nobs];
+w=xa[nlag:nobs-1];
+i=2; do while i <= nlag;
+ w=w~xa[nlag+1-i:nobs-i];
+i=i+1; endo;
+beta=invpd(w'w)*w'y;
+ee=y-w*beta;
+sv=stdc(ee)/(1-sumc(beta[1:nlag]));
+
+"Results from AR -- Model";
+"SEE";; stdc(ee);
+"AR Coefficients";;beta[1:nlag]';
+"LR Standard Deviation";;sv;
+
+@ -- Filter Data by AR filter -- @
+xfilt=x;
+
+i=1; do while i <= nlag;
+xfilt[nlag+1:rows(x)]=xfilt[nlag+1:rows(x)]-beta[i]*x[nlag+1-i:rows(x)-i];
+i=i+1; endo;
+
+xfilt=xfilt[nlag+1:rows(x)];
+nobs=rows(xfilt);
+
+@ -- Calculate P-Statistic -- @
+theta7=7/nobs;
+p7rat=poist(xfilt,theta7,0,0);
+
+"";
+"Robust Versions of POI7 Test";p7rat;
+
+@ -- Calculate P-Values for Tests -- @
+"";"";
+"P-Values for Tests";
+"Test       P-value";
+p7tab=cdfp7[1,.];
+ppp=pval(p7rat,p7tab,pdvec);
+"p7-Robust ";;ppp;
+
+
+@ -- Compute MUB's and Confidence Intervals -- @
+"";"";
+"Median Unbiased Estimators";
+"Test       lambda     sige";
+
+#include mub.prc;
+
+@ -- Save Medians -- @
+tar=0.50;
+@ -- Find Columns Corresponding to this target -- @
+d=pdvec-tar*ones(1,cols(pdvec));
+d=abs(d');
+di=minindc(d);
+
+@ Save Medians -- @
+p7tab=cdfp7[.,di];
+
+lub=mub(p7rat,lamdat,p7tab);
+sige=(lub/nobs)*sv;
+"p7-Robust";;lub;;sige;
+g=lub/nobs;                       @ This will be used for filtering @
+
+"";"";
+" -- Lower Bound of 90% confidence Interval -- ";
+@ -- Save Quantile -- @
+tar=0.95;
+@ -- Find Columns Corresponding to this target -- @
+d=pdvec-tar*ones(1,cols(pdvec));
+d=abs(d');
+di=minindc(d);
+
+@ Save Quantile -- @
+p7tab=cdfp7[.,di];
+
+lub=mub(p7rat,lamdat,p7tab);
+sige=(lub/nobs)*sv;
+"p7-Robust";;lub;;sige;
+
+"";
+" -- Upper Bound of 90% confidence Interval -- ";
+@ -- Save Quantile -- @
+tar=0.050;
+@ -- Find Columns Corresponding to this target -- @
+d=pdvec-tar*ones(1,cols(pdvec));
+d=abs(d');
+di=minindc(d);
+
+@ Save Quantile -- @
+p7tab=cdfp7[.,di];
+
+lub=mub(p7rat,lamdat,p7tab);
+sige=(lub/nobs)*sv;
+"p7-Robust";;lub;;sige;
+
+@ .. Construct and Graph Filtered Series using MUB poi7 .. @
+q=g*g;
+r=1;
+p1=big;
+b1=0;
+pt_t=zeros(rows(x)+1,1);
+bt_t=zeros(rows(x)+1,1);
+ptp1_t=zeros(rows(x)+1,1);
+btp1_t=zeros(rows(x)+1,1);
+bt_capt=zeros(rows(x)+1,1);
+pt_capt=zeros(rows(x)+1,1);
+pt_t[1]=p1;
+bt_t[1]=b1;
+
+ii=1; do while ii <= rows(x);
+ {b1,p1,b2,p2,n,h} = rwkfilt(x[ii],b1,p1,r,q);
+ pt_t[ii+1]=p1;
+ bt_t[ii+1]=b1;
+ ptp1_t[ii]=p2;
+ btp1_t[ii]=b2;
+ii=ii+1; endo;
+p3=p1;
+b3=b1;
+bt_capt[rows(x)+1]=b3;
+pt_capt[rows(x)+1]=p3;
+ii=rows(x)-1; do while ii >= 0;
+ b2=btp1_t[ii+1];
+ p2=ptp1_t[ii+1];
+ b1=bt_t[ii+1];
+ p1=pt_t[ii+1]; 
+ {b3,p3}=rwksmth(b1,b2,b3,p1,p2,p3);
+ bt_capt[ii+1]=b3;
+ pt_capt[ii+1]=p3;
+ii=ii-1; endo;
+alpha_f=bt_t[2:rows(x)+1];
+alpha_s=bt_capt[2:rows(x)+1];
+
+/*
+@ .. One-shot Calculation ... 
+     Check smoother       @
+nn=rows(x);
+f=lowmat(ones(nn,nn));
+varff=q*(f*f')+big*ones(nn,nn);
+vary=eye(nn)+varff;
+kg=varff*invpd(vary);
+alpha=kg*x;
+stop;
+*/
+
+/*_pltype=6|6;
+_plwidth=1|3;
+xy(cal,alpha_f~alpha_s);
+wait;
+xy(cal,x~alpha_s);
+wait;
+*/
+
+xs=x-alpha_s;
+xf=x-alpha_f;
+ys=miss(zeros(dnobs,1),0);
+yf=miss(zeros(dnobs,1),0);
+ys[trp[1]:trp[rows(trp)]]=xs;
+yf[trp[1]:trp[rows(trp)]]=xf;
+ys=missrv(ys,missc);
+yf=missrv(ys,missc);
+
+output off;
+fname = dpath $+ cname[imark,1] $+ "gdppc_sm." $+ iext;
+format /ro 16,6;
+output file = ^fname reset; output on;
+screen off;
+ ys;
+screen on;
+output off;
+
+imark=imark+1; endo;
+
+output off;
+

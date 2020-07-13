@@ -1,0 +1,311 @@
+Results from Cor_split_test.gss
+Date 8/02/04
+Time17:43:00
+Number of lags in Newey-West Cov Matrix for Estimated Correlations    6.00 
+Number of own lags in VAR    4.00 
+Number of other lags in VAR    1.00 
+
+
+Sample Period 1960.00  1983.99 
+Sample Period 1984.00  2003.00 
+Correlation for Period 1 (SE), Correlation for Period 2 (SE)
+  0.31  (  0.12 ),   0.33  (  0.13 ), 
+  0.50  (  0.11 ),   0.12  (  0.21 ), 
+  0.56  (  0.12 ),   0.59  (  0.16 ), 
+  0.30  (  0.10 ),   0.38  (  0.07 ), 
+  0.59  (  0.12 ),   0.77  (  0.08 ), 
+  0.35  (  0.15 ),   0.59  (  0.18 ), 
+  0.20  (  0.08 ),  -0.05  (  0.19 ), 
+  0.40  (  0.08 ),   0.28  (  0.22 ), 
+  0.46  (  0.16 ),   0.38  (  0.13 ), 
+  0.28  (  0.14 ),   0.34  (  0.18 ), 
+  0.26  (  0.12 ),   0.72  (  0.13 ), 
+  0.54  (  0.10 ),   0.33  (  0.10 ), 
+  0.53  (  0.08 ),   0.11  (  0.18 ), 
+  0.13  (  0.12 ),   0.47  (  0.08 ), 
+  0.48  (  0.11 ),   0.09  (  0.19 ), 
+  0.77  (  0.05 ),   0.80  (  0.07 ), 
+  0.39  (  0.13 ),   0.26  (  0.14 ), 
+  0.52  (  0.13 ),   0.22  (  0.19 ), 
+  0.21  (  0.15 ),   0.29  (  0.07 ), 
+  0.32  (  0.17 ),   0.02  (  0.16 ), 
+  0.46  (  0.11 ),   0.58  (  0.16 ), 
+
+Differences in Correlations (SE), tstat (Pvalue)
+  0.02  (  0.17 ),   0.11  (  0.91 ), 
+ -0.37  (  0.24 ),  -1.58  (  0.11 ), 
+  0.03  (  0.20 ),   0.13  (  0.90 ), 
+  0.08  (  0.13 ),   0.61  (  0.54 ), 
+  0.18  (  0.15 ),   1.23  (  0.22 ), 
+  0.25  (  0.24 ),   1.05  (  0.29 ), 
+ -0.25  (  0.21 ),  -1.20  (  0.23 ), 
+ -0.12  (  0.24 ),  -0.52  (  0.60 ), 
+ -0.08  (  0.20 ),  -0.38  (  0.71 ), 
+  0.07  (  0.23 ),   0.29  (  0.77 ), 
+  0.46  (  0.18 ),   2.57  (  0.01 ), 
+ -0.21  (  0.14 ),  -1.53  (  0.13 ), 
+ -0.42  (  0.20 ),  -2.12  (  0.03 ), 
+  0.34  (  0.14 ),   2.38  (  0.02 ), 
+ -0.39  (  0.22 ),  -1.76  (  0.08 ), 
+  0.03  (  0.08 ),   0.31  (  0.76 ), 
+ -0.13  (  0.19 ),  -0.69  (  0.49 ), 
+ -0.30  (  0.23 ),  -1.31  (  0.19 ), 
+  0.08  (  0.16 ),   0.50  (  0.62 ), 
+ -0.30  (  0.23 ),  -1.27  (  0.20 ), 
+  0.11  (  0.19 ),   0.59  (  0.56 ), 
+
+Differences in Correlations (SE), Reformated
+ , , , , , , ,
+  0.02  (  0.17 ),  , , , , , ,
+ -0.37  (  0.24 ),   0.03  (  0.20 ),  , , , , ,
+  0.08  (  0.13 ),   0.18  (  0.15 ),   0.25  (  0.24 ),  , , , ,
+ -0.25  (  0.21 ),  -0.12  (  0.24 ),  -0.08  (  0.20 ),   0.07  (  0.23 ),  , , ,
+  0.46  (  0.18 ),  -0.21  (  0.14 ),  -0.42  (  0.20 ),   0.34  (  0.14 ),  -0.39  (  0.22 ),  , ,
+  0.03  (  0.08 ),  -0.13  (  0.19 ),  -0.30  (  0.23 ),   0.08  (  0.16 ),  -0.30  (  0.23 ),   0.11  (  0.19 ),  ,
+
+
+Overall Test for Changes in Correlations, DF, Pvalue
+130.49  21.00   0.00 
+Debug ... approximateQLR Pvalue  0.00 
+
+
+Average Change in Correlation -0.05 
+Std Error of Average Change  0.10 
+Pvalues    0.66   1.00 
+
+
+Average Change in Correlation Excluding Japan  0.01 
+Std Error of Average Change Excluding Japan  0.09 
+Pvalues    0.93   1.00 
+
+
+  6.00   1.00 
+  7.00   1.00 
+  7.00   6.00 
+Average Change in Correlation English Speaking  0.20 
+Std Error of Average Change English Speaking  0.13 
+Pvalues    0.13   0.71 
+
+
+  3.00   2.00 
+  4.00   2.00 
+  4.00   3.00 
+Average Change in Correlation Fr, It, BD  0.15 
+Std Error of Average Change Fr, It, BD  0.17 
+Pvalues    0.38   1.00 
+
+
+  2.00   1.00 
+  3.00   1.00 
+  4.00   1.00 
+  6.00   2.00 
+  6.00   3.00 
+  6.00   4.00 
+  7.00   2.00 
+  7.00   3.00 
+  7.00   4.00 
+Difference Average Change in Correlation Eng. Speaking - Europe -0.10 
+Std Error of Average Change Eng. Speaking - Europe  0.11 
+Pvalues    0.34   1.00 
+
+
+  5.00   1.00 
+  5.00   2.00 
+  5.00   3.00 
+  5.00   4.00 
+  6.00   5.00 
+  7.00   5.00 
+Difference Average Change in Correlation Japan and Others -0.18 
+Std Error  0.17 
+Pvalues    0.29   0.98 
+
+
+Difference Europe/Eng minus Crossproduct  0.28 
+Std Error of Europe/Eng minus Crossproduct  0.10 
+Pvalues    0.00   0.06 
+
+
+
+
+Sample Period1960.00 1983.99 
+Sample Period1984.00 2003.00 
+VAR Results
+Equation
+  1.00 
+Coefficients, Periods 1 and 2, difference, se(dif), tstat for dif
+
+ -0.09   0.19   0.27   0.16   1.75 
+ -0.18   0.12   0.31   0.13   2.35 
+ -0.04   0.23   0.28   0.13   2.15 
+  0.00  -0.23  -0.23   0.12  -1.90 
+ -0.04  -0.04   0.00   0.22  -0.02 
+  0.11  -0.03  -0.13   0.10  -1.29 
+  0.07   0.12   0.05   0.16   0.29 
+  0.05  -0.13  -0.18   0.11  -1.63 
+  0.00   0.19   0.20   0.15   1.31 
+  0.46   0.34  -0.12   0.17  -0.71 
+
+All Coefficients (teststat, df, chi-sq p-value, QLR P-value ) 26.68  10.00   0.00   0.05 
+Own Lag Coefficients (teststat, df, chi-sq p-value, QLR P-value) 17.42   4.00   0.00   0.03 
+Other Lag Coefficients (teststat, df, chi-sq p-value, QLR P-value)  6.69   6.00   0.35   0.97 
+Error Variance 20.87   1.00   0.00   0.00 
+
+Equation
+  2.00 
+Coefficients, Periods 1 and 2, difference, se(dif), tstat for dif
+
+ -0.37  -0.08   0.28   0.18   1.59 
+ -0.18   0.19   0.38   0.12   3.13 
+ -0.02   0.23   0.24   0.12   2.03 
+ -0.09   0.01   0.10   0.12   0.87 
+ -0.04   0.19   0.23   0.12   1.91 
+  0.02  -0.04  -0.06   0.08  -0.69 
+  0.22   0.23   0.00   0.13   0.02 
+ -0.02   0.07   0.09   0.09   1.05 
+  0.18   0.12  -0.06   0.11  -0.52 
+  0.18  -0.03  -0.21   0.13  -1.57 
+
+All Coefficients (teststat, df, chi-sq p-value, QLR P-value ) 27.13  10.00   0.00   0.05 
+Own Lag Coefficients (teststat, df, chi-sq p-value, QLR P-value) 18.49   4.00   0.00   0.02 
+Other Lag Coefficients (teststat, df, chi-sq p-value, QLR P-value)  6.30   6.00   0.39   0.98 
+Error Variance  6.46   1.00   0.01   0.13 
+
+Equation
+  3.00 
+Coefficients, Periods 1 and 2, difference, se(dif), tstat for dif
+
+ -0.31  -0.34  -0.02   0.16  -0.15 
+ -0.10  -0.23  -0.13   0.13  -1.02 
+ -0.15  -0.11   0.04   0.13   0.34 
+  0.22   0.13  -0.09   0.13  -0.73 
+  0.09   0.17   0.08   0.23   0.35 
+ -0.17   0.32   0.50   0.33   1.52 
+  0.25   0.24  -0.01   0.24  -0.04 
+ -0.05   0.23   0.28   0.16   1.70 
+  0.34  -0.13  -0.47   0.22  -2.16 
+  0.38  -0.04  -0.41   0.25  -1.63 
+
+All Coefficients (teststat, df, chi-sq p-value, QLR P-value ) 14.68  10.00   0.14   0.75 
+Own Lag Coefficients (teststat, df, chi-sq p-value, QLR P-value)  2.13   4.00   0.71   1.00 
+Other Lag Coefficients (teststat, df, chi-sq p-value, QLR P-value) 12.81   6.00   0.05   0.41 
+Error Variance  8.55   1.00   0.00   0.05 
+
+Equation
+  4.00 
+Coefficients, Periods 1 and 2, difference, se(dif), tstat for dif
+
+  0.25  -0.19  -0.43   0.17  -2.60 
+  0.06   0.04  -0.02   0.13  -0.15 
+ -0.15   0.01   0.16   0.13   1.31 
+ -0.13  -0.05   0.08   0.13   0.64 
+  0.22   0.12  -0.10   0.16  -0.60 
+ -0.17   0.25   0.42   0.23   1.82 
+  0.02  -0.01  -0.03   0.11  -0.29 
+  0.13   0.05  -0.08   0.12  -0.63 
+  0.07   0.32   0.25   0.15   1.69 
+  0.00  -0.12  -0.12   0.17  -0.68 
+
+All Coefficients (teststat, df, chi-sq p-value, QLR P-value ) 14.04  10.00   0.17   0.80 
+Own Lag Coefficients (teststat, df, chi-sq p-value, QLR P-value)  9.20   4.00   0.06   0.46 
+Other Lag Coefficients (teststat, df, chi-sq p-value, QLR P-value)  8.24   6.00   0.22   0.88 
+Error Variance  9.87   1.00   0.00   0.03 
+
+Equation
+  5.00 
+Coefficients, Periods 1 and 2, difference, se(dif), tstat for dif
+
+  0.10  -0.06  -0.16   0.15  -1.01 
+  0.20  -0.01  -0.22   0.15  -1.47 
+  0.07   0.17   0.10   0.15   0.71 
+ -0.02   0.01   0.03   0.15   0.19 
+ -0.03   0.07   0.09   0.25   0.37 
+ -0.13  -0.35  -0.22   0.33  -0.65 
+  0.09   0.19   0.10   0.16   0.63 
+ -0.11   0.29   0.40   0.26   1.55 
+  0.12  -0.02  -0.14   0.23  -0.61 
+  0.04   0.26   0.22   0.27   0.79 
+
+All Coefficients (teststat, df, chi-sq p-value, QLR P-value )  8.07  10.00   0.62   1.00 
+Own Lag Coefficients (teststat, df, chi-sq p-value, QLR P-value)  3.60   4.00   0.46   0.99 
+Other Lag Coefficients (teststat, df, chi-sq p-value, QLR P-value)  4.94   6.00   0.55   1.00 
+Error Variance  0.28   1.00   0.60   1.00 
+
+Equation
+  6.00 
+Coefficients, Periods 1 and 2, difference, se(dif), tstat for dif
+
+ -0.08   0.47   0.55   0.16   3.48 
+  0.04  -0.28  -0.32   0.16  -1.93 
+  0.07   0.12   0.06   0.16   0.35 
+ -0.03   0.10   0.13   0.14   0.95 
+ -0.12   0.32   0.44   0.17   2.56 
+ -0.23  -0.04   0.19   0.25   0.75 
+ -0.04   0.00   0.04   0.11   0.39 
+  0.13   0.03  -0.10   0.17  -0.58 
+  0.09  -0.04  -0.12   0.14  -0.91 
+  0.26  -0.02  -0.28   0.18  -1.53 
+
+All Coefficients (teststat, df, chi-sq p-value, QLR P-value ) 29.97  10.00   0.00   0.02 
+Own Lag Coefficients (teststat, df, chi-sq p-value, QLR P-value) 17.13   4.00   0.00   0.04 
+Other Lag Coefficients (teststat, df, chi-sq p-value, QLR P-value)  8.19   6.00   0.22   0.88 
+Error Variance 18.15   1.00   0.00   0.00 
+
+Equation
+  7.00 
+Coefficients, Periods 1 and 2, difference, se(dif), tstat for dif
+
+  0.22   0.10  -0.13   0.17  -0.76 
+  0.02   0.15   0.14   0.15   0.92 
+ -0.12   0.02   0.14   0.14   0.99 
+  0.01  -0.03  -0.04   0.13  -0.32 
+  0.04   0.06   0.02   0.16   0.13 
+ -0.04   0.18   0.22   0.22   1.01 
+  0.05  -0.08  -0.13   0.11  -1.21 
+  0.05   0.04  -0.01   0.16  -0.04 
+  0.07  -0.01  -0.07   0.12  -0.62 
+  0.10   0.36   0.26   0.14   1.82 
+
+All Coefficients (teststat, df, chi-sq p-value, QLR P-value )  8.93  10.00   0.54   1.00 
+Own Lag Coefficients (teststat, df, chi-sq p-value, QLR P-value)  2.49   4.00   0.65   1.00 
+Other Lag Coefficients (teststat, df, chi-sq p-value, QLR P-value)  6.04   6.00   0.42   0.99 
+Error Variance 23.06   1.00   0.00   0.00 
+
+
+Overall Test for Changes in Variances 78.47   7.00   0.00   0.00 
+
+
+Correlation for Period 1 (SE), Correlation for Period 2 (SE)
+ -0.03  (  0.09 ),   0.10  (  0.13 ), 
+  0.21  (  0.09 ),  -0.28  (  0.12 ), 
+  0.35  (  0.15 ),   0.38  (  0.11 ), 
+  0.10  (  0.08 ),   0.04  (  0.11 ), 
+  0.32  (  0.12 ),   0.57  (  0.08 ), 
+  0.05  (  0.11 ),   0.28  (  0.11 ), 
+  0.18  (  0.09 ),  -0.08  (  0.10 ), 
+  0.20  (  0.09 ),  -0.04  (  0.11 ), 
+  0.23  (  0.09 ),   0.10  (  0.08 ), 
+  0.15  (  0.10 ),  -0.04  (  0.14 ), 
+  0.10  (  0.10 ),   0.09  (  0.13 ), 
+  0.37  (  0.10 ),   0.17  (  0.11 ), 
+  0.29  (  0.11 ),   0.03  (  0.15 ), 
+ -0.06  (  0.09 ),   0.11  (  0.11 ), 
+  0.28  (  0.12 ),  -0.02  (  0.09 ), 
+  0.36  (  0.10 ),   0.45  (  0.08 ), 
+  0.06  (  0.09 ),   0.19  (  0.12 ), 
+  0.13  (  0.09 ),   0.02  (  0.11 ), 
+ -0.02  (  0.09 ),  -0.12  (  0.12 ), 
+  0.16  (  0.11 ),  -0.14  (  0.10 ), 
+  0.19  (  0.10 ),  -0.02  (  0.13 ), 
+
+Differences in Correlations (SE)
+ , , , , , , ,
+  0.13  (  0.16 ),  , , , , , ,
+ -0.49  (  0.15 ),   0.03  (  0.18 ),  , , , , ,
+ -0.06  (  0.14 ),   0.25  (  0.14 ),   0.22  (  0.15 ),  , , , ,
+ -0.26  (  0.13 ),  -0.23  (  0.15 ),  -0.13  (  0.12 ),  -0.18  (  0.17 ),  , , ,
+ -0.01  (  0.16 ),  -0.20  (  0.15 ),  -0.26  (  0.19 ),   0.17  (  0.14 ),  -0.30  (  0.15 ),  , ,
+  0.09  (  0.13 ),   0.13  (  0.15 ),  -0.10  (  0.14 ),  -0.10  (  0.15 ),  -0.30  (  0.15 ),  -0.21  (  0.16 ),  ,
+
+
+Overall Test for Changes in Correlations, DF, Pvalue
+ 50.26  21.00   0.00 

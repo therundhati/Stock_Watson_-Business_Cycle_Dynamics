@@ -1,0 +1,1039 @@
+/*
+    fac_iorp.gss, 5/9/03, mww
+    Impulse or propogation
+    6 way decomposition
+*/
+new;
+library pgraph;
+graphset;
+rndseed 55133715;
+outwidth 200;
+ofile="fac_iorp.out";  @ Output File Name @
+iext="q50";            @ Data Extension -- input @
+nfy=1950;              @ First Year @
+nfp=1;                 @ First Period of Year @
+nly=2002;              @ Last Year @
+nlp=4;                 @ Last Period of Year @
+nper=4;                       @ Number of Periods Per Year @
+dpath="c:\\g7\\data\\";       @ Data Path @
+savpath="c:\\g7\\gss\\fmt\\"; @ Save Path @
+missc=1.0e+032;        @ Missing Value Code in ASCII Files @
+othlag=1;              @ Number of other lags in VAR @
+ownlag=4;              @ number of own lags in VAR @
+nem=1000;              @ Number of EM Reps -- first run @
+nirf=12;               @ Number of Impulse Responses @
+
+nord=100;              @ Number of Ordinates for spectral calculation @
+nperl=6;               @ Lower cutoff for bandpass @
+nperu=32;              @ Upper cutoff for bandpass @
+
+nmc=5000;              @ Number of MC draws @
+
+smplvec = 
+(1960.0~1983.99) |
+(1984.0~2003);
+
+small=1.0e-06;
+
+dnobs=nper*(nly-nfy-1)+nlp+(nper+1-nfp);        @ - Number of Obs, data - @
+calvec=seqa(nfy+(nfp-1)/nper,1/nper,dnobs);     @ -- Calendar Vector -- @
+
+load path = ^dpath;
+
+#include fcst.prc;
+#include udatain.prc;
+#include spmodh.prc;
+
+cname=
+"cn" $|
+"fr" $|
+"bd" $|
+"it" $|
+"jp" $|
+"uk" $|
+"us" ;
+
+ns=rows(cname);  @ Number of Series @
+
+clabel=
+"Canada" $|
+"France" $|
+"Germany" $|
+"Italy" $|
+"Japan" $|
+"U.K." $|
+"U.S." ;
+
+clab=
+"A. Canada" $|
+"B. France" $|
+"C. Germany" $|
+"D. Italy" $|
+"E. Japan" $|
+"F. U.K." $|
+"G. U.S." ;
+
+let hvec[7,2] = 
+1 1
+1 1
+1 1
+1 1
+1 1 
+1 1
+1 0;
+
+
+@ Normalize on US and France @
+
+nf=cols(hvec);   @ Number of Factors @
+
+output file = ^ofile reset; output on;
+outwidth 200;
+format /ro 16,6;
+
+@ .. Read in Series @
+s=miss(zeros(dnobs,ns),0);
+imark=1; do while imark <= ns;
+ ystr="" $+ cname[imark,1] $+ "gdppc_sm." $+ iext;
+ ydata=udatain(ystr,missc,dnobs);
+ ytran=ydata;    @ Note ... data are already in first differences (detrended) @ 
+ s[.,imark]=ytran;
+imark=imark+1; endo;
+
+/* Carry Out Analysis Period by Period */
+                            
+
+@ Misc Matrices used in calculations @
+maxlag=maxc(ownlag|othlag);
+nreg=ns*(ownlag+(ns-1)*othlag);  @ Number of Regressors @ 
+nregvec=(ownlag+(ns-1)*othlag)*ones(ns,1);  @ Vector with number of regressors in each equation@
+step=pi/nord;
+wvec=seqa(step,step,nord); 
+nfl=2*pi/nperl;
+nfu=2*pi/nperu;
+ibc =(wvec .<= nfl).*(wvec .>= nfu);
+
+output file = ^ofile reset; output on;
+
+ni=1; do while ni <= rows(smplvec);
+ "Sample Period";; smplvec[ni,.];
+ ismpl = (calvec .>= smplvec[ni,1]-small) .* (calvec .<= smplvec[ni,2]-small);
+ @ Matrix of Dependent Variables @
+ yt=selif(s,ismpl);
+
+ @ Construct X Matrix -- Using lags of other series ... unrestricted @
+ xt=miss(zeros(dnobs,nreg),0);
+ i=1; do while i <= ns;
+  ii=(i-1)*(ownlag+(ns-1)*othlag);
+  j=1; do while j <= ownlag;
+   xt[j+1:dnobs,ii+j]=s[1:dnobs-j,i];
+  j=j+1; endo;
+  ii=ii+ownlag;
+  ik=1; do while ik <= ns;
+   if ik ./= i;
+    j=1; do while j <= othlag;
+     xt[j+1:dnobs,ii+j]=s[1:dnobs-j,ik];
+    j=j+1; endo;
+    ii=ii+othlag;
+   endif;
+  ik=ik+1; endo;
+ i=i+1; endo;
+ xt=selif(xt,ismpl); 
+ 
+ @ Check Number of Observations @
+ tmp=packr(yt~xt);
+ yt=tmp[.,1:ns];
+ xt=tmp[.,ns+1:cols(tmp)];
+ 
+ @ Construct GLS Estimates of Regression Coefficients @
+  nt=rows(yt);  @ Number of time periods @
+  ny=cols(yt);  @ Number of equations @
+  nr=cols(xt);  @ Total Number of regressors @
+  @ Step 1: Form y and x matrix for stacked system @
+  y=vec(yt);
+  x=zeros(nt*ny,nr);
+  jj=0;
+  i=1; do while i <= ny;
+   ii=(i-1)*nt;
+   x[ii+1:ii+nt,jj+1:jj+nregvec[i]]=xt[.,jj+1:jj+nregvec[i]];
+   jj=jj+nregvec[i];
+  i=i+1; endo;
+  
+  bols=invpd(x'x)*(x'y);
+  e=y-x*bols;
+  u=(reshape(e,ny,nt))';
+  seps=u'u/nt;
+  sepsinv=invpd(seps);
+  q=sepsinv.*.eye(nt);
+  bgls=(invpd(x'q*x))*(x'q*y);
+  e=y-x*bgls;
+  u=(reshape(e,ny,nt))';
+  
+  e=u;  @ Change notation for use in EM @
+  ee=e'e;
+  seps=(e'e)/(rows(e));
+  seps_inv=invpd(seps);
+  det_seps=det(seps);
+  tmp=seps_inv*ee;
+  un_lf=-0.5*(rows(e)*ln(det_seps) + sumc(diag(tmp))); @ Unrestricted log-likelihood @ 
+  
+  @ Initialize for EM @
+    @ initial values @
+    vuuvec = diag(seps)/sqrt(2);
+    vuu=diagrv(eye(ns),vuuvec);
+    lam=sqrt(vuuvec).*hvec;
+    vff=eye(cols(hvec));
+  
+  @ EM Iterations @
+
+  irep=1; do while irep <= nem;
+   vee=lam*vff*lam' + vuu;
+   vee_i=invpd(vee);
+   det_vee=det(vee);
+   if irep .== nem;
+    tmp=vee_i*ee;
+    lf=-0.5*(rows(e)*ln(det_vee) + sumc(diag(tmp)));
+   endif;
+
+   @ Regression Coefficients @
+
+   psi=vff*lam'invpd(vee);
+   vff_e=vff-psi*lam*vff;
+   fhat=e*psi';
+ 
+   @ Compute Sufficient statistics given e @
+   ef=e'fhat;
+   ff=fhat'fhat+vff_e*rows(fhat);
+ 
+   @ Construct new estimate of lambda @
+   i=1; do while i <= rows(hvec);
+    nfm=sumc(hvec[i,.]');
+    xxy=zeros(nfm,1);
+    xx=zeros(nfm,nfm);
+    jx=0;
+    j=1; do while j <= cols(hvec);
+     if hvec[i,j] .== 1;
+      jx=jx+1;
+      xxy[jx,1]=ef[i,j];
+      kx=0;
+      k=1; do while k <= cols(hvec);
+       if hvec[i,k] .== 1;
+        kx=kx+1;
+        xx[jx,kx]=ff[j,k];
+       endif;
+      k=k+1; endo;
+     endif;
+    j=j+1; endo;
+    lam_i=invpd(xx)*xxy;
+    tmp=ee[i,i]-xxy'lam_i;
+    vuu[i,i]=tmp/rows(e);
+    jx=0;
+    j=1; do while j <= cols(hvec);
+     if hvec[i,j] .== 1;
+      jx=jx+1;
+      lam[i,j]=lam_i[jx];
+     endif;
+    j=j+1; endo;
+   i=i+1; endo;
+  irep=irep+1; endo;
+  "Sample Period";;smplvec[ni,.];
+  "Unrestricted Log Likelihood";;un_lf;
+  "Restricted Log Likelihood";;lf;
+  df_unr=(ns*(ns+1))/2;
+  df_res=(sumc(sumc(hvec)) + ns);
+  df=df_unr-df_res;
+  "Degrees of Freedom";;df;
+  lrstat=2*(un_lf-lf);
+  pvalue=cdfchic(lrstat,df);
+  "LR Stat and Pvalue";;lrstat;;pvalue;
+  "Factor Loadings";
+  lam;
+  "Uniquess SD";
+  (sqrt(diag(vuu)));
+  "";"";
+  
+  @ ... Write in standard form ... 
+        Each column shows regression coefficients for 1 equation    @
+  beta=zeros(ns*maxlag,ns);
+  nre=ownlag+(ns-1)*othlag;
+  i=1; do while i <= ns;
+   ii=(i-1)*nre;
+   bcoef=bgls[ii+1:ii+nre];
+   j=1; do while j <= ownlag;
+    jj=(j-1)*ns;
+    beta[jj+i,i]=bcoef[j];
+   j=j+1; endo;
+   ii=ownlag;
+   j=1; do while j <= othlag;
+    jj=(j-1)*ns;
+    ik=0;
+    k=1; do while k <= ns;
+     if k ./= i;
+      mm=ownlag+ik*othlag;
+      beta[jj+k,i]=bcoef[mm+j];
+      ik=ik+1;
+     endif;
+    k=k+1; endo;
+   j=j+1; endo;
+  i=i+1; endo;  
+  
+ @ ---- Calculate Companion Matrix ---- @
+ b=beta';
+ comp=zeros(cols(b),cols(b));
+ comp[1:rows(b),.]=b;
+ if cols(b) .> rows(b);
+  comp[rows(b)+1:rows(comp),1:cols(comp)-rows(b)]=eye(cols(comp)-rows(b));
+ endif;
+ @ -- Write Model in SS Form --
+     y(t) = Q*z(t)
+     z(t) = M*z(t-1) + G*u(t)
+     var(u(t)) = I
+ @
+ m=comp;
+ q=zeros(ns,rows(m));
+ q[1:ns,1:ns]=eye(ns);
+ g=zeros(cols(m),nf+ns);
+ g[1:ns,1:nf]=lam;
+ g[1:ns,nf+1:nf+ns]=sqrt(vuu);
+
+
+ if ni .== 1;
+  m1=m;
+  g1=g;
+  q1=q;
+  nobs1=rows(yt);
+ elseif ni .== 2;
+  m2=m;
+  g2=g;
+  q2=q;
+  nobs2=rows(yt); 
+ endif;
+
+ @ -- Compute Impulse Response Functions --- @
+ i=1; do while i <= ns+nf;
+  z=zeros(rows(m),1);
+  eta=zeros(ns+nf,1);
+  eta[i]=1;
+  z=g*eta;
+  y=q*z;
+  irf=y';
+  j=1; do while j <= nirf;
+   z=m*z;
+   y=q*z;
+   irf=irf|y';
+  j=j+1; endo;
+  str_irf="irf" $+ ftocv(ni,1,0) $+ ftocv(i,2,0);
+  yy=varput(irf,str_irf);
+ i=i+1; endo;
+  
+ni=ni+1; endo;
+
+@ ... Normalize Impulse Responses ... @
+ve1=ones(nf+ns,1);  @ Period 1 var of errors @
+ve2=ones(nf+ns,1);  @ Period 2 var of errors @
+
+i=1; do while i <= nf;
+  str_irf="irf1"$+ ftocv(i,2,0); 
+  irf=varget(str_irf);   
+  ac_irf=cumsumc(irf);
+  tmp=irf[1,.]';
+  normfac=sqrt(tmp'tmp);
+  ac_irf=ac_irf./normfac;  @ Accumulate to get level  of series @
+  df_irf=irf./normfac;  @ Normalized difference IRF @
+  ve1[i]=normfac.^2;
+  str_irf="ac_irf1"$+ ftocv(i,2,0); 
+  yy=varput(ac_irf,str_irf);
+  str_irf="df_irf1"$+ ftocv(i,2,0); 
+  yy=varput(df_irf,str_irf);
+
+  str_irf="irf2"$+ ftocv(i,2,0); 
+  irf=varget(str_irf);   
+  ac_irf=cumsumc(irf);  @ Accumulate to get level  of series @
+  tmp=irf[1,.]';
+  normfac=sqrt(tmp'tmp);
+  ac_irf=ac_irf./normfac;
+  df_irf=irf./normfac;  @ Normalized difference IRF @
+  ve2[i]=normfac.^2;
+  str_irf="ac_irf2"$+ ftocv(i,2,0); 
+  yy=varput(ac_irf,str_irf);  
+  str_irf="df_irf2"$+ ftocv(i,2,0); 
+  yy=varput(df_irf,str_irf);
+i=i+1; endo;
+
+i=1; do while i <= ns;
+  str_irf="irf1"$+ ftocv(nf+i,2,0); 
+  irf=varget(str_irf);   
+  ac_irf=cumsumc(irf);  @ Accumulate to get level  of series @
+  normfac=irf[1,i];
+  ac_irf=ac_irf./normfac;
+  df_irf=irf./normfac;  @ Normalized difference IRF @
+  ve1[nf+i]=normfac.^2;
+  str_irf="ac_irf1"$+ ftocv(nf+i,2,0); 
+  yy=varput(ac_irf,str_irf);
+  str_irf="df_irf1"$+ ftocv(nf+i,2,0); 
+  yy=varput(df_irf,str_irf);
+
+  str_irf="irf2"$+ ftocv(nf+i,2,0); 
+  irf=varget(str_irf);   
+  ac_irf=cumsumc(irf);  @ Accumulate to get level  of series @
+  normfac=irf[1,i];
+  ac_irf=ac_irf./normfac;
+  df_irf=irf./normfac;  @ Normalized difference IRF @
+  ve2[nf+i]=normfac.^2;
+  str_irf="ac_irf2"$+ ftocv(nf+i,2,0); 
+  yy=varput(ac_irf,str_irf);  
+  str_irf="df_irf2"$+ ftocv(nf+i,2,0); 
+  yy=varput(df_irf,str_irf);
+i=i+1; endo;
+
+
+@ Rearrange so that IRFs are by variable 
+  Each Column is different shock
+  Each Row is different horizon
+@
+i=1; do while i <= ns;
+  @ Levels @
+  sirf1=zeros(nirf+1,ns+nf);
+  sirf2=zeros(nirf+1,ns+nf);
+  j=1; do while j <= ns+nf;
+   str_irf="ac_irf1"$+ ftocv(j,2,0);
+   irf=varget(str_irf);
+   sirf1[.,j]=irf[.,i];
+   str_irf="ac_irf2"$+ ftocv(j,2,0);
+   irf=varget(str_irf);
+   sirf2[.,j]=irf[.,i];
+  j=j+1; endo;
+  str="ac_sirf1"$+ ftocv(i,2,0);   
+  yy=varput(sirf1,str);
+  str="ac_sirf2"$+ ftocv(i,2,0);   
+  yy=varput(sirf2,str);
+  
+  @ Differences @
+  sirf1=zeros(nirf+1,ns+nf);
+  sirf2=zeros(nirf+1,ns+nf);
+  j=1; do while j <= ns+nf;
+   str_irf="df_irf1"$+ ftocv(j,2,0);
+   irf=varget(str_irf);
+   sirf1[.,j]=irf[.,i];
+   str_irf="df_irf2"$+ ftocv(j,2,0);
+   irf=varget(str_irf);
+   sirf2[.,j]=irf[.,i];
+  j=j+1; endo;
+  str="df_sirf1"$+ ftocv(i,2,0);   
+  yy=varput(sirf1,str);
+  str="df_sirf2"$+ ftocv(i,2,0);   
+  yy=varput(sirf2,str);
+  
+i=i+1; endo;
+
+@ Compute and Print Results @
+t=seqa(1,1,nirf+1);
+tpaar=100*(4./t);
+it= t.==4;
+format /rd 6,2;
+
+res_save=zeros(ns,11);
+i=1; do while i <= ns;
+  clabel[i];;" ,";;
+  str="ac_sirf1"$+ ftocv(i,2,0);   
+  sirf1=varget(str);
+  str="ac_sirf2"$+ ftocv(i,2,0);   
+  sirf2=varget(str);
+  acirf1sq=cumsumc(sirf1.^2);  @ Accumulated Squared IRFs .. usef for VD @
+  acirf2sq=cumsumc(sirf2.^2);  @ Accumulated Squared IRFs .. usef for VD @
+  vc1=acirf1sq.*ve1';
+  vc2=acirf2sq.*ve2';
+  tv1=sumc(vc1');   @ Total Variance Period 1 @
+  tv2=sumc(vc2');   @ Total Variance Period 2 @
+  
+  @ Decompose into Pieces @
+  avg_ve=(ve1+ve2)/2;
+  avg_irfsq=(acirf1sq+acirf2sq)/2;
+  impdif=avg_irfsq.*(ve2-ve1)';           @ Impulse or Shock Difference @
+  prpdif=(acirf2sq-acirf1sq).*(avg_ve');  @ Propogation Difference @
+  
+  impdiffac=sumc(impdif[.,1:nf]');
+  impdifown=impdif[.,nf+i];
+  impdifspill=sumc(impdif[.,nf+1:nf+ns]')-impdif[.,nf+i];
+  prpdiffac=sumc(prpdif[.,1:nf]');
+  prpdifown=prpdif[.,nf+i];
+  prpdifspill=sumc(prpdif[.,nf+1:nf+ns]')-prpdif[.,nf+i];
+  tdif=tv2-tv1;
+  
+  imptot=sumc((impdiffac~impdifspill~impdifown)');
+  prptot=sumc((prpdiffac~prpdifspill~prpdifown)');
+  y=tv1~tv2;
+  y=y~tdif~impdiffac~impdifspill~impdifown~imptot;
+  y=y~prpdiffac~prpdifspill~prpdifown~prptot;
+  y=(tpaar.^2).*y;
+  y=selif(y,it);
+  res_save[i,.]=y;
+ i=i+1; endo;
+
+"ratio of shock standard deviations -- second period / first period";
+format /rd 8,3;
+sqrt(ve2./ve1);
+
+@ ... Plot First and Second Period Impulse Responses ... @
+
+@ Levels @
+_pdate = "";
+_pltype = 6|3;
+_plwidth = 3|3;
+_paxht=.25;
+_ptitlht=.25;
+_pnumht=.20;
+_ptek="Fig9a_01.tkf";
+ytics(-1.0,3.0,1.0,0);
+begwind;
+window(3,3,0);
+setwind(1);
+load path = ^savpath;
+x=seqa(0,1,nirf+1);
+i=1; do while i <= rows(cname);
+  str="ac_sirf1"$+ ftocv(i,2,0);   
+  sirf1=varget(str);
+  str="ac_sirf2"$+ ftocv(i,2,0);   
+  sirf2=varget(str);
+  y=sirf1[.,1]~sirf2[.,1];   @ First Factor @
+  title(clab[i]);
+  xy(x,y);
+ nextwind;
+i=i+1; endo;
+endwind;
+@ wait; @
+
+_pdate = "";
+_pltype = 6|3;
+_plwidth = 3|3;
+_ptek="Fig9b_01.tkf";
+ytics(-0.5,1.0,0.50,0);
+begwind;
+window(3,3,0);
+setwind(1);
+load path = ^savpath;
+i=1; do while i <= rows(cname);
+  str="ac_sirf1"$+ ftocv(i,2,0);   
+  sirf1=varget(str);
+  str="ac_sirf2"$+ ftocv(i,2,0);   
+  sirf2=varget(str);
+  y=sirf1[.,2]~sirf2[.,2];   @ First Factor @
+  title(clab[i]);
+  xy(x,y);
+ nextwind;
+i=i+1; endo;
+endwind;
+@ wait; @
+
+@ Compute MC draws for bootstrap standard errors @
+
+r_res=rows(res_save);
+c_res=cols(res_save);
+n_res=r_res*c_res;
+
+"";"";
+
+res_mc=miss(zeros(n_res,nmc),0);
+
+@ -- Monte Carlo Iterations -- @
+imc = 1; do while imc <= nmc;
+ print /flush; "Imc = ";;imc;;timestr(time);
+
+ @ Generate Data for S1 and S2 @
+ nobs=200;  @ Number of obs ... will only use the last of them @
+ s1=zeros(nobs,ns);
+ z1=zeros(rows(m1),1);
+ s2=zeros(nobs,ns);
+ z2=zeros(rows(m2),1);
+ nu=cols(g);
+ t=1; do while t <= nobs;
+  u1=rndn(nu,1);
+  u2=rndn(nu,1);
+  z1=m1*z1+g1*u1;
+  z2=m2*z2+g2*u2;
+  s1[t,.]=(q1*z1)';
+  s2[t,.]=(q2*z2)';
+ t=t+1; endo;  
+ 
+ @ -- Carry out analysis -- @
+
+ni=1; do while ni <= 2;
+ if ni .== 1;
+  s=s1;
+  nobs=nobs1;
+ elseif ni .== 2;
+  s=s2;
+  nobs=nobs2;
+ endif;
+ yt=s;
+ dnobs=rows(s);
+ @ Construct X Matrix -- Using lags of other series ... unrestricted @
+ xt=miss(zeros(dnobs,nreg),0);
+ i=1; do while i <= ns;
+  ii=(i-1)*(ownlag+(ns-1)*othlag);
+  j=1; do while j <= ownlag;
+   xt[j+1:dnobs,ii+j]=s[1:dnobs-j,i];
+  j=j+1; endo;
+  ii=ii+ownlag;
+  ik=1; do while ik <= ns;
+   if ik ./= i;
+    j=1; do while j <= othlag;
+     xt[j+1:dnobs,ii+j]=s[1:dnobs-j,ik];
+    j=j+1; endo;
+    ii=ii+othlag;
+   endif;
+  ik=ik+1; endo;
+ i=i+1; endo;
+ yt=yt[rows(yt)-nobs+1:rows(yt),.];
+ xt=xt[rows(xt)-nobs+1:rows(xt),.]; 
+   
+ @ Construct GLS Estimates of Regression Coefficients @
+  nt=rows(yt);  @ Number of time periods @
+  ny=cols(yt);  @ Number of equations @
+  nr=cols(xt);  @ Total Number of regressors @
+  @ Step 1: Form y and x matrix for stacked system @
+  y=vec(yt);
+  x=zeros(nt*ny,nr);
+  jj=0;
+  i=1; do while i <= ny;
+   ii=(i-1)*nt;
+   x[ii+1:ii+nt,jj+1:jj+nregvec[i]]=xt[.,jj+1:jj+nregvec[i]];
+   jj=jj+nregvec[i];
+  i=i+1; endo;
+  
+  bols=invpd(x'x)*(x'y);
+  e=y-x*bols;
+  u=(reshape(e,ny,nt))';
+  seps=u'u/nt;
+  sepsinv=invpd(seps);
+  q=sepsinv.*.eye(nt);
+  bgls=(invpd(x'q*x))*(x'q*y);
+  e=y-x*bgls;
+  u=(reshape(e,ny,nt))';
+  
+  e=u;  @ Change notation for use in EM @
+  ee=e'e;
+  seps=(e'e)/(rows(e));
+  seps_inv=invpd(seps);
+  det_seps=det(seps);
+  tmp=seps_inv*ee;
+  un_lf=-0.5*(rows(e)*ln(det_seps) + sumc(diag(tmp))); @ Unrestricted log-likelihood @ 
+  
+  @ Initialize for EM @
+    @ initial values @
+    vuuvec = diag(seps)/sqrt(2);
+    vuu=diagrv(eye(ns),vuuvec);
+    lam=sqrt(vuuvec).*hvec;
+    vff=eye(cols(hvec));
+  
+  @ EM Iterations @
+
+  irep=1; do while irep <= nem;
+   vee=lam*vff*lam' + vuu;
+   vee_i=invpd(vee);
+   det_vee=det(vee);
+   if irep .== nem;
+    tmp=vee_i*ee;
+    lf=-0.5*(rows(e)*ln(det_vee) + sumc(diag(tmp)));
+   endif;
+
+   @ Regression Coefficients @
+
+   psi=vff*lam'invpd(vee);
+   vff_e=vff-psi*lam*vff;
+   fhat=e*psi';
+ 
+   @ Compute Sufficient statistics given e @
+   ef=e'fhat;
+   ff=fhat'fhat+vff_e*rows(fhat);
+ 
+   @ Construct new estimate of lambda @
+   i=1; do while i <= rows(hvec);
+    nfm=sumc(hvec[i,.]');
+    xxy=zeros(nfm,1);
+    xx=zeros(nfm,nfm);
+    jx=0;
+    j=1; do while j <= cols(hvec);
+     if hvec[i,j] .== 1;
+      jx=jx+1;
+      xxy[jx,1]=ef[i,j];
+      kx=0;
+      k=1; do while k <= cols(hvec);
+       if hvec[i,k] .== 1;
+        kx=kx+1;
+        xx[jx,kx]=ff[j,k];
+       endif;
+      k=k+1; endo;
+     endif;
+    j=j+1; endo;
+    lam_i=invpd(xx)*xxy;
+    tmp=ee[i,i]-xxy'lam_i;
+    vuu[i,i]=tmp/rows(e);
+    jx=0;
+    j=1; do while j <= cols(hvec);
+     if hvec[i,j] .== 1;
+      jx=jx+1;
+      lam[i,j]=lam_i[jx];
+     endif;
+    j=j+1; endo;
+   i=i+1; endo;
+  irep=irep+1; endo;
+/*
+  "";
+  format /ro 11,4;
+  "Sample Period";;smplvec[ni,.];
+  "Unrestricted Log Likelihood";;un_lf;
+  "Restricted Log Likelihood";;lf;
+  df_unr=(ns*(ns+1))/2;
+  df_res=(sumc(sumc(hvec)) + ns);
+  df=df_unr-df_res;
+  "Degrees of Freedom";;df;
+  lrstat=2*(un_lf-lf);
+  pvalue=cdfchic(lrstat,df);
+  "LR Stat and Pvalue";;lrstat;;pvalue;
+  "Factor Loadings";
+  lam;
+  "Uniquess SD";
+  (sqrt(diag(vuu)));
+  "";"";
+*/
+  @ ... Write in standard form ... 
+        Each column shows regression coefficients for 1 equation    @
+  beta=zeros(ns*maxlag,ns);
+  nre=ownlag+(ns-1)*othlag;
+  i=1; do while i <= ns;
+   ii=(i-1)*nre;
+   bcoef=bgls[ii+1:ii+nre];
+   j=1; do while j <= ownlag;
+    jj=(j-1)*ns;
+    beta[jj+i,i]=bcoef[j];
+   j=j+1; endo;
+   ii=ownlag;
+   j=1; do while j <= othlag;
+    jj=(j-1)*ns;
+    ik=0;
+    k=1; do while k <= ns;
+     if k ./= i;
+      mm=ownlag+ik*othlag;
+      beta[jj+k,i]=bcoef[mm+j];
+      ik=ik+1;
+     endif;
+    k=k+1; endo;
+   j=j+1; endo;
+  i=i+1; endo;  
+  
+ @ ---- Calculate Companion Matrix ---- @
+ b=beta';
+ comp=zeros(cols(b),cols(b));
+ comp[1:rows(b),.]=b;
+ if cols(b) .> rows(b);
+  comp[rows(b)+1:rows(comp),1:cols(comp)-rows(b)]=eye(cols(comp)-rows(b));
+ endif;
+ @ -- Write Model in SS Form --
+     y(t) = Q*z(t)
+     z(t) = M*z(t-1) + G*u(t)
+     var(u(t)) = I
+ @
+ m=comp;
+ q=zeros(ns,rows(m));
+ q[1:ns,1:ns]=eye(ns);
+ g=zeros(cols(m),nf+ns);
+ g[1:ns,1:nf]=lam;
+ g[1:ns,nf+1:nf+ns]=sqrt(vuu);
+ 
+ @ -- Compute Impulse Response Functions --- @
+ i=1; do while i <= ns+nf;
+  z=zeros(rows(m),1);
+  eta=zeros(ns+nf,1);
+  eta[i]=1;
+  z=g*eta;
+  y=q*z;
+  irf=y';
+  j=1; do while j <= nirf;
+   z=m*z;
+   y=q*z;
+   irf=irf|y';
+  j=j+1; endo;
+  str_irf="irf" $+ ftocv(ni,1,0) $+ ftocv(i,2,0);
+  yy=varput(irf,str_irf);
+ i=i+1; endo;
+  
+ni=ni+1; endo;
+
+@ ... Normalize Impulse Responses ... @
+ve1=ones(nf+ns,1);  @ Period 1 var of errors @
+ve2=ones(nf+ns,1);  @ Period 2 var of errors @
+
+i=1; do while i <= nf;
+  str_irf="irf1"$+ ftocv(i,2,0); 
+  irf=varget(str_irf);   
+  ac_irf=cumsumc(irf);
+  tmp=irf[1,.]';
+  normfac=sqrt(tmp'tmp);
+  ac_irf=ac_irf./normfac;  @ Accumulate to get level  of series @
+  df_irf=irf./normfac;  @ Normalized difference IRF @
+  ve1[i]=normfac.^2;
+  str_irf="ac_irf1"$+ ftocv(i,2,0); 
+  yy=varput(ac_irf,str_irf);
+  str_irf="df_irf1"$+ ftocv(i,2,0); 
+  yy=varput(df_irf,str_irf);
+
+  str_irf="irf2"$+ ftocv(i,2,0); 
+  irf=varget(str_irf);   
+  ac_irf=cumsumc(irf);  @ Accumulate to get level  of series @
+  tmp=irf[1,.]';
+  normfac=sqrt(tmp'tmp);
+  ac_irf=ac_irf./normfac;
+  df_irf=irf./normfac;  @ Normalized difference IRF @
+  ve2[i]=normfac.^2;
+  str_irf="ac_irf2"$+ ftocv(i,2,0); 
+  yy=varput(ac_irf,str_irf);  
+  str_irf="df_irf2"$+ ftocv(i,2,0); 
+  yy=varput(df_irf,str_irf);
+i=i+1; endo;
+
+i=1; do while i <= ns;
+  str_irf="irf1"$+ ftocv(nf+i,2,0); 
+  irf=varget(str_irf);   
+  ac_irf=cumsumc(irf);  @ Accumulate to get level  of series @
+  normfac=irf[1,i];
+  ac_irf=ac_irf./normfac;
+  df_irf=irf./normfac;  @ Normalized difference IRF @
+  ve1[nf+i]=normfac.^2;
+  str_irf="ac_irf1"$+ ftocv(nf+i,2,0); 
+  yy=varput(ac_irf,str_irf);
+  str_irf="df_irf1"$+ ftocv(nf+i,2,0); 
+  yy=varput(df_irf,str_irf);
+
+  str_irf="irf2"$+ ftocv(nf+i,2,0); 
+  irf=varget(str_irf);   
+  ac_irf=cumsumc(irf);  @ Accumulate to get level  of series @
+  normfac=irf[1,i];
+  ac_irf=ac_irf./normfac;
+  df_irf=irf./normfac;  @ Normalized difference IRF @
+  ve2[nf+i]=normfac.^2;
+  str_irf="ac_irf2"$+ ftocv(nf+i,2,0); 
+  yy=varput(ac_irf,str_irf);  
+  str_irf="df_irf2"$+ ftocv(nf+i,2,0); 
+  yy=varput(df_irf,str_irf);
+i=i+1; endo;
+
+
+@ Rearrange so that IRFs are by variable 
+  Each Column is different shock
+  Each Row is different horizon
+@
+i=1; do while i <= ns;
+  @ Levels @
+  sirf1=zeros(nirf+1,ns+nf);
+  sirf2=zeros(nirf+1,ns+nf);
+  j=1; do while j <= ns+nf;
+   str_irf="ac_irf1"$+ ftocv(j,2,0);
+   irf=varget(str_irf);
+   sirf1[.,j]=irf[.,i];
+   str_irf="ac_irf2"$+ ftocv(j,2,0);
+   irf=varget(str_irf);
+   sirf2[.,j]=irf[.,i];
+  j=j+1; endo;
+  str="ac_sirf1"$+ ftocv(i,2,0);   
+  yy=varput(sirf1,str);
+  str="ac_sirf2"$+ ftocv(i,2,0);   
+  yy=varput(sirf2,str);
+  
+  @ Differences @
+  sirf1=zeros(nirf+1,ns+nf);
+  sirf2=zeros(nirf+1,ns+nf);
+  j=1; do while j <= ns+nf;
+   str_irf="df_irf1"$+ ftocv(j,2,0);
+   irf=varget(str_irf);
+   sirf1[.,j]=irf[.,i];
+   str_irf="df_irf2"$+ ftocv(j,2,0);
+   irf=varget(str_irf);
+   sirf2[.,j]=irf[.,i];
+  j=j+1; endo;
+  str="df_sirf1"$+ ftocv(i,2,0);   
+  yy=varput(sirf1,str);
+  str="df_sirf2"$+ ftocv(i,2,0);   
+  yy=varput(sirf2,str);
+  
+i=i+1; endo;
+
+@ Compute and Print Results @
+t=seqa(1,1,nirf+1);
+tpaar=100*(4./t);
+it= t.==4;
+
+res_tmp=zeros(ns,11);
+i=1; do while i <= ns;
+  str="ac_sirf1"$+ ftocv(i,2,0);   
+  sirf1=varget(str);
+  str="ac_sirf2"$+ ftocv(i,2,0);   
+  sirf2=varget(str);
+  acirf1sq=cumsumc(sirf1.^2);  @ Accumulated Squared IRFs .. usef for VD @
+  acirf2sq=cumsumc(sirf2.^2);  @ Accumulated Squared IRFs .. usef for VD @
+  vc1=acirf1sq.*ve1';
+  vc2=acirf2sq.*ve2';
+  tv1=sumc(vc1');   @ Total Variance Period 1 @
+  tv2=sumc(vc2');   @ Total Variance Period 2 @
+  
+  @ Decompose into Pieces @
+  avg_ve=(ve1+ve2)/2;
+  avg_irfsq=(acirf1sq+acirf2sq)/2;
+  impdif=avg_irfsq.*(ve2-ve1)';           @ Impulse or Shock Difference @
+  prpdif=(acirf2sq-acirf1sq).*(avg_ve');  @ Propogation Difference @
+  
+  impdiffac=sumc(impdif[.,1:nf]');
+  impdifown=impdif[.,nf+i];
+  impdifspill=sumc(impdif[.,nf+1:nf+ns]')-impdif[.,nf+i];
+  prpdiffac=sumc(prpdif[.,1:nf]');
+  prpdifown=prpdif[.,nf+i];
+  prpdifspill=sumc(prpdif[.,nf+1:nf+ns]')-prpdif[.,nf+i];
+  tdif=tv2-tv1;
+  
+  imptot=sumc((impdiffac~impdifspill~impdifown)');
+  prptot=sumc((prpdiffac~prpdifspill~prpdifown)');
+  y=tv1~tv2;
+  y=y~tdif~impdiffac~impdifspill~impdifown~imptot;
+  y=y~prpdiffac~prpdifspill~prpdifown~prptot;
+  y=(tpaar.^2).*y;
+  y=selif(y,it);
+  res_tmp[i,.]=y;
+ i=i+1; endo;
+ 
+ @ res_tmp; @
+ res_mc[.,imc]=vec(res_tmp);
+ 
+imc=imc+1; endo;
+
+tmp=meanc(res_mc');
+res_mean=(reshape(tmp,cols(res_save),rows(res_save)))';
+tmp=stdc(res_mc');
+res_std=(reshape(tmp,cols(res_save),rows(res_save)))';
+pct=.01|.05|.10|.25|.50|.75|.90|.95|.99;
+tmp2=miss(zeros(rows(pct),rows(res_mc)),0);
+i=1; do while i <= rows(res_mc);
+ tmp1=res_mc[i,.]';
+ tmp2[.,i]=pctile(tmp1,pct);
+i=i+1; endo;
+
+i=1; do while i <= rows(pct);
+ tmp=tmp2[i,.]';
+ tmp=(reshape(tmp,cols(res_save),rows(res_save)))';
+ pct100=pct[i]*100;
+ res_name="res_" $+ ftocv(pct100,2,0);
+ yy=varput(tmp,res_name);
+i=i+1; endo;
+
+"Point Estimates";
+res_save;
+""
+"MC Mean";
+res_mean;
+""
+"MC std";
+res_std; 
+"";
+"MC Quantiles";
+i=1; do while i <= rows(pct);
+ "Quantile = ";;pct[i];
+ pct100=pct[i]*100;
+ res_name="res_" $+ ftocv(pct100,2,0);
+ tmp=varget(res_name);
+ tmp;
+i=i+1; endo;
+
+@ Construct Covariance Matrix for all Draws to be used to construct some joint tests @
+x=res_mc';
+x=x-meanc(x)';
+cov_x=x'x/(rows(x)-1);
+
+@ Chi-squared Statistics for Each column of Table @
+nc=7;  @ 7 Countries @
+ncol=11;  @ Number of Columns of Table @
+vec_res_save=vec(res_save);
+pv_save=zeros(ncol,1);
+i=1; do while i <= ncol;
+ i1=(i-1)*nc+1;
+ i2=i*nc;
+ y=vec_res_save[i1:i2];
+ vy=cov_x[i1:i2,i1:i2];
+ vyi=invpd(vy);
+ waldy=y'vyi*y;
+ pv_y=cdfchic(waldy,nc);
+ "Column ";;i;
+ "Entries ";; y';
+ "Wald Stat";;waldy;
+ "Pvalue ";;pv_y;
+ pv_save[i]=pv_y;
+i=i+1; endo;
+
+@ Write Results for Table 8 @
+"Variance Changes and Decompositions";
+"";
+"Point Estimates";
+i=1; do while i <= nc;
+clabel[i];;" ,";;
+ j=1; do while j <= cols(res_save);
+  format /rd 6,2;
+  res_save[i,j];;
+  if j < cols(res_save);
+   " ,";;
+  else;
+   "";
+  endif;
+ j=j+1; endo;
+i=i+1; endo;
+"Col Pvalue ,";;
+ j=1; do while j <= rows(pv_save);
+  format /rd 6,2;
+  pv_save[j];;
+  if j < rows(pv_save);
+   " ,";;
+  else;
+   "";
+  endif;
+ j=j+1; endo;
+
+"";
+"Standard Errors for Point Estimates";
+i=1; do while i <= nc;
+clabel[i];;" ,";;
+ j=1; do while j <= cols(res_std);
+  format /rd 6,2;
+  res_std[i,j];;
+  if j < cols(res_std);
+   " ,";;
+  else;
+   "";
+  endif;
+ j=j+1; endo;
+i=i+1; endo;
+
+"";
+"Formated Data for Table 8";
+i=1; do while i <= nc;
+  clabel[i];;" ,";;
+  j=1; do while j <= cols(res_save);
+   format /rd 6,2;
+   res_save[i,j];;" (";;res_std[i,j];;")";;
+   if j < cols(res_save);
+    " ,";;
+   else;
+    "";
+   endif;
+  j=j+1; endo;
+i=i+1; endo;
+
+"Col Pvalue ,";;
+ j=1; do while j <= rows(pv_save);
+  format /rd 6,2;
+  pv_save[j];;
+  if j < rows(pv_save);
+   " ,";;
+  else;
+   "";
+  endif;
+ j=j+1; endo;
+
+
+output off;

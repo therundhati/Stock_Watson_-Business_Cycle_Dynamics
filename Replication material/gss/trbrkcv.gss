@@ -1,0 +1,57 @@
+/* trbrkcv.gss, mww, 7/22/02
+   Compute Critical Values and CDF for Break tests of mean allowing for trend
+   Compute test statistics for break and for trend coefficients 
+*/
+
+nrep=5000;   @ Number of Replications @ 
+n=500;      @ Number of Time Periods @
+n1=ceil(.15*n);
+n2=floor(.85*n);
+
+t=seqa(1,1,n);
+c=ones(n,1);
+
+fstat1=zeros(nrep,1);  @ QLR fstat for Break @
+fstat2=zeros(nrep,1);  @ Fstat for trend evaluated at QLR break date @
+
+i=1; do while i <= nrep;
+  i;;timestr(time);
+  y=rndn(n,1);
+  f1=zeros(n,1);
+  f2=zeros(n,1);
+  j=n1; do while j <= n2;
+   a=t .<= j;
+   x=a~t~c;
+   xxi=invpd(x'x);
+   b=xxi*(x'y);
+   fstat=(b.^2)./diag(xxi);
+   f1[j]=fstat[1];
+   f2[j]=fstat[2];
+  j=j+1; endo;
+  ii=maxindc(f1);
+  fstat1[i]=f1[ii];
+  fstat2[i]=f2[ii];
+i=i+1; endo;
+
+@ -- Compute CDFs and Save -- @
+pct=seqa(.01,.01,99);
+f1_pdf=pctile(fstat1,pct);
+f2_pdf=pctile(fstat2,pct);
+
+trbrkcdf=pct~f1_pdf~f2_pdf;
+save trbrkcdf;
+trbrkcdf;
+
+
+@ ----------------------------------------------------------- @
+@ PCTILE.PRC @
+@   computes percentiles of a column vector @
+proc (1)=pctile(x,pct);
+ local xpct ;
+ x=sortc(x,1);
+ pct=ceil(pct*rows(x));
+ xpct=x[pct];
+retp(xpct);
+endp;
+
+

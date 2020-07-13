@@ -1,0 +1,77 @@
+/* bp_to_q50, 3/27/03
+   Bandpass data 
+   Construct BP data ... write as *.q50 files
+*/
+
+new;
+library pgraph;
+graphset;
+outwidth 200;
+ofile="bp_data.out";  @ Output File Name @
+iext="q50";           @ Data Extension -- input @
+nfy=1950;             @ First Year @
+nfp=1;                @ First Period of Year @
+nly=2002;             @ Last Year @
+nlp=4;                @ Last Period of Year @
+nper=4;               @ Number of Periods Per Year @
+dpath="c:\\g7\\data\\";  @ Data Path @
+missc=1.0e+032 ;           @ Missing Value Code in ASCII Files @
+updc=6;               @ Upper Period Cutoff for BP filter @
+lpdc=32;              @ Lower Period Cutoff for BP filter @
+bpn=8;                @ Number of Terms in BP filter (symmetric
+                         total terms = 2*bpn+1) @
+small=1e-08;             @ Small number @
+
+dnobs=nper*(nly-nfy-1)+nlp+(nper+1-nfp);        @ - Number of Obs, data - @
+calvec=seqa(nfy+(nfp-1)/nper,1/nper,dnobs);     @ -- Calendar Vector -- @
+load path = ^dpath;
+
+#include fcst.prc;
+#include udatain.prc;
+#include bpassar.prc;
+
+cname=
+"cn" $|
+"fr" $|
+"bd" $|
+"it" $|
+"jp" $|
+"uk" $|
+"us" ;
+
+let sname[1,2]=
+gdppc  5 ;    
+
+ 
+tr=seqa(1,1,dnobs);     
+imark=1; do while imark <= rows(cname);
+ jmark=1; do while jmark <= rows(sname);
+  tcode=sname[jmark,2];
+  ystr="" $+ cname[imark,1] $+ sname[jmark,1] $+ "." $+ iext;
+  "Processing ";;$ystr;
+  ydata=udatain(ystr,missc,dnobs);
+  if tcode .== 5;
+   ydata=ln(ydata);
+  elseif tcode .== 6;
+   y=miss(zeros(dnobs,1),0);
+   y[2:dnobs]=ln(ydata[2:dnobs]./ydata[1:dnobs-1]);
+   ydata=y;
+  endif;
+  ybp=miss(zeros(dnobs,1),0);
+  @ ... Construct Band Pass Filtered Series ... @
+  x=packr(ydata~tr);
+  y=x[.,1];
+  trp=x[.,2];
+  xbp=bpass(y,updc,lpdc,bpn);
+  ybp[trp[1]:trp[rows(trp)]]=xbp;
+  ybp=missrv(ybp,missc);
+  fname = dpath $+ cname[imark,1] $+ sname[jmark,1] $+ "_bp." $+ iext;
+  format /ro 16,6;
+  output file = ^fname reset; output on;
+  screen off;
+   ybp;
+  screen on;
+  output off;
+  "";
+ jmark=jmark+1; endo;
+imark=imark+1; endo;

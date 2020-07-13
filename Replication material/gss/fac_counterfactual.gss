@@ -1,0 +1,795 @@
+/*
+    fac_counterfactual.gss, 7/31/04, mww
+    Compute correlations using factor model and counterfactuals
+*/
+new;
+library pgraph;
+graphset;
+outwidth 200;
+ofile="fac_counterfactual.out";  @ Output File Name @
+iext="q50";            @ Data Extension -- input @
+nfy=1950;              @ First Year @
+nfp=1;                 @ First Period of Year @
+nly=2002;              @ Last Year @
+nlp=4;                 @ Last Period of Year @
+nper=4;                       @ Number of Periods Per Year @
+dpath="c:\\g7\\data\\";       @ Data Path @
+savpath="c:\\g7\\gss\\fmt\\"; @ Save Path @
+missc=1.0e+032;        @ Missing Value Code in ASCII Files @
+othlag=1;              @ Number of other lags in VAR @
+ownlag=4;              @ number of own lags in VAR @
+nem=1000;              @ Number of EM Reps -- first run @
+nirf=7;                @ Number of Impulse Responses @
+
+nord=100;              @ Number of Ordinates for spectral calculation @
+nperl=6;               @ Lower cutoff for bandpass @
+nperu=32;              @ Upper cutoff for bandpass @
+
+smplvec = 
+(1960.0~1983.99) |
+(1984.0~2003);
+
+small=1.0e-06;
+
+dnobs=nper*(nly-nfy-1)+nlp+(nper+1-nfp);        @ - Number of Obs, data - @
+calvec=seqa(nfy+(nfp-1)/nper,1/nper,dnobs);     @ -- Calendar Vector -- @
+
+load path = ^dpath;
+
+#include fcst.prc;
+#include udatain.prc;
+#include spmodh.prc;
+
+
+@ SD of Shocks, second period divided by first period @
+
+cname=
+"cn" $|
+"fr" $|
+"bd" $|
+"it" $|
+"jp" $|
+"uk" $|
+"us" ;
+
+ns=rows(cname);  @ Number of Series @
+
+clabel=
+"Canada" $|
+"France" $|
+"Germany" $|
+"Italy" $|
+"Japan" $|
+"U.K." $|
+"U.S." ;
+
+let hvec[7,2] = 
+1 1
+1 1
+1 1
+1 1
+1 1 
+1 1
+1 0;
+
+nf=cols(hvec);   @ Number of Factors @
+
+output file = ^ofile reset; output on;
+outwidth 200;
+format /rd 7,2;
+
+@ .. Read in Series @
+s=miss(zeros(dnobs,ns),0);
+imark=1; do while imark <= ns;
+ ystr="" $+ cname[imark,1] $+ "gdppc_sm." $+ iext;
+ ydata=udatain(ystr,missc,dnobs);
+ ytran=ydata;    @ Note ... data are already in first differences (detrended) @ 
+ s[.,imark]=ytran;
+imark=imark+1; endo;
+
+/* Carry Out Analysis Period by Period */
+                            
+
+@ Misc Matrices used in calculations @
+maxlag=maxc(ownlag|othlag);
+nreg=ns*(ownlag+(ns-1)*othlag);  @ Number of Regressors @ 
+nregvec=(ownlag+(ns-1)*othlag)*ones(ns,1);  @ Vector with number of regressors in each equation@
+step=pi/nord;
+wvec=seqa(step,step,nord); 
+nfl=2*pi/nperl;
+nfu=2*pi/nperu;
+ibc =(wvec .<= nfl).*(wvec .>= nfu);
+
+@ Matrices for Saving Results @
+bpsd=miss(zeros(ns,1),0);       @ St. Dev of BP Series @
+bpcoh=miss(zeros(ns,ns),0);     @ Average Coherence @
+bpcor=miss(zeros(ns,ns),0);     @ BP Correlation @
+
+d4sd=miss(zeros(ns,1),0);       @ St. Dev of d4 Series @
+d4coh=miss(zeros(ns,ns),0);     @ Average Coherence @
+d4cor=miss(zeros(ns,ns),0);     @ d4 Correlation @
+
+
+
+@ Estimate Models to compute ratios of standard deviations @
+
+ni=1; do while ni <= rows(smplvec);
+ "Sample Period";; smplvec[ni,.];
+ ismpl = (calvec .>= smplvec[ni,1]-small) .* (calvec .<= smplvec[ni,2]-small);
+ @ Matrix of Dependent Variables @
+ yt=selif(s,ismpl);
+
+ @ Construct X Matrix -- Using lags of other series ... unrestricted @
+ xt=miss(zeros(dnobs,nreg),0);
+ i=1; do while i <= ns;
+  ii=(i-1)*(ownlag+(ns-1)*othlag);
+  j=1; do while j <= ownlag;
+   xt[j+1:dnobs,ii+j]=s[1:dnobs-j,i];
+  j=j+1; endo;
+  ii=ii+ownlag;
+  ik=1; do while ik <= ns;
+   if ik ./= i;
+    j=1; do while j <= othlag;
+     xt[j+1:dnobs,ii+j]=s[1:dnobs-j,ik];
+    j=j+1; endo;
+    ii=ii+othlag;
+   endif;
+  ik=ik+1; endo;
+ i=i+1; endo;
+ xt=selif(xt,ismpl); 
+ 
+ @ Check Number of Observations @
+ tmp=packr(yt~xt);
+ yt=tmp[.,1:ns];
+ xt=tmp[.,ns+1:cols(tmp)];
+ 
+ @ Construct GLS Estimates of Regression Coefficients @
+  nt=rows(yt);  @ Number of time periods @
+  ny=cols(yt);  @ Number of equations @
+  nr=cols(xt);  @ Total Number of regressors @
+  @ Step 1: Form y and x matrix for stacked system @
+  y=vec(yt);
+  x=zeros(nt*ny,nr);
+  jj=0;
+  i=1; do while i <= ny;
+   ii=(i-1)*nt;
+   x[ii+1:ii+nt,jj+1:jj+nregvec[i]]=xt[.,jj+1:jj+nregvec[i]];
+   jj=jj+nregvec[i];
+  i=i+1; endo;
+  
+  bols=invpd(x'x)*(x'y);
+  e=y-x*bols;
+  u=(reshape(e,ny,nt))';
+  seps=u'u/nt;
+  sepsinv=invpd(seps);
+  q=sepsinv.*.eye(nt);
+  bgls=(invpd(x'q*x))*(x'q*y);
+  e=y-x*bgls;
+  u=(reshape(e,ny,nt))';
+  
+  e=u;  @ Change notation for use in EM @
+  ee=e'e;
+  seps=(e'e)/(rows(e));
+  seps_inv=invpd(seps);
+  det_seps=det(seps);
+  tmp=seps_inv*ee;
+  un_lf=-0.5*(rows(e)*ln(det_seps) + sumc(diag(tmp))); @ Unrestricted log-likelihood @ 
+  
+  @ Initialize for EM @
+    @ initial values @
+    vuuvec = diag(seps)/sqrt(2);
+    vuu=diagrv(eye(ns),vuuvec);
+    lam=sqrt(vuuvec).*hvec;
+    vff=eye(cols(hvec));
+  
+  @ EM Iterations @
+
+  irep=1; do while irep <= nem;
+   vee=lam*vff*lam' + vuu;
+   vee_i=invpd(vee);
+   det_vee=det(vee);
+   if irep .== nem;
+    tmp=vee_i*ee;
+    lf=-0.5*(rows(e)*ln(det_vee) + sumc(diag(tmp)));
+   endif;
+
+   @ Regression Coefficients @
+
+   psi=vff*lam'invpd(vee);
+   vff_e=vff-psi*lam*vff;
+   fhat=e*psi';
+ 
+   @ Compute Sufficient statistics given e @
+   ef=e'fhat;
+   ff=fhat'fhat+vff_e*rows(fhat);
+ 
+   @ Construct new estimate of lambda @
+   i=1; do while i <= rows(hvec);
+    nfm=sumc(hvec[i,.]');
+    xxy=zeros(nfm,1);
+    xx=zeros(nfm,nfm);
+    jx=0;
+    j=1; do while j <= cols(hvec);
+     if hvec[i,j] .== 1;
+      jx=jx+1;
+      xxy[jx,1]=ef[i,j];
+      kx=0;
+      k=1; do while k <= cols(hvec);
+       if hvec[i,k] .== 1;
+        kx=kx+1;
+        xx[jx,kx]=ff[j,k];
+       endif;
+      k=k+1; endo;
+     endif;
+    j=j+1; endo;
+    lam_i=invpd(xx)*xxy;
+    tmp=ee[i,i]-xxy'lam_i;
+    vuu[i,i]=tmp/rows(e);
+    jx=0;
+    j=1; do while j <= cols(hvec);
+     if hvec[i,j] .== 1;
+      jx=jx+1;
+      lam[i,j]=lam_i[jx];
+     endif;
+    j=j+1; endo;
+   i=i+1; endo;
+  irep=irep+1; endo;
+  "Sample Period";;smplvec[ni,.];
+  "Unrestricted Log Likelihood";;un_lf;
+  "Restricted Log Likelihood";;lf;
+  df_unr=(ns*(ns+1))/2;
+  df_res=(sumc(sumc(hvec)) + ns);
+  df=df_unr-df_res;
+  "Degrees of Freedom";;df;
+  lrstat=2*(un_lf-lf);
+  pvalue=cdfchic(lrstat,df);
+  "LR Stat and Pvalue";;lrstat;;pvalue;
+  "Factor Loadings";
+  lam;
+  "Uniquess SD";
+  (sqrt(diag(vuu)));
+  if ni .== 1;
+   lam_1=lam;
+   sdu_1= sqrt(diag(vuu));
+  elseif ni .== 2;
+   lam_2=lam;               
+   sdu_2= sqrt(diag(vuu));  
+  endif;
+  "";"";
+ni=ni+1; endo;
+
+
+/*
+@ Country Specific Normalizations @
+sdrat=lam_2[7,1]./lam_1[7,1];         @ US Normalization for factor 1 @
+sdrat=sdrat|(lam_2[2,2]./lam_1[2,2]); @ France Normalization for factor 2 @
+*/
+
+@ Length 1 of factor loading columns  normalization @
+sdrat=sqrt( (lam_2[.,1]'lam_2[.,1])/(lam_1[.,1]'lam_1[.,1]) );
+sdrat=sdrat|(sqrt( (lam_2[.,2]'lam_2[.,2])/(lam_1[.,2]'lam_1[.,2]) ));
+
+
+sdrat=sdrat|(sdu_2./sdu_1);           @ Uniquenesses @
+
+
+ni=1; do while ni <= rows(smplvec);
+ "Sample Period";; smplvec[ni,.];
+ ismpl = (calvec .>= smplvec[ni,1]-small) .* (calvec .<= smplvec[ni,2]-small);
+ @ Matrix of Dependent Variables @
+ yt=selif(s,ismpl);
+
+ @ Construct X Matrix -- Using lags of other series ... unrestricted @
+ xt=miss(zeros(dnobs,nreg),0);
+ i=1; do while i <= ns;
+  ii=(i-1)*(ownlag+(ns-1)*othlag);
+  j=1; do while j <= ownlag;
+   xt[j+1:dnobs,ii+j]=s[1:dnobs-j,i];
+  j=j+1; endo;
+  ii=ii+ownlag;
+  ik=1; do while ik <= ns;
+   if ik ./= i;
+    j=1; do while j <= othlag;
+     xt[j+1:dnobs,ii+j]=s[1:dnobs-j,ik];
+    j=j+1; endo;
+    ii=ii+othlag;
+   endif;
+  ik=ik+1; endo;
+ i=i+1; endo;
+ xt=selif(xt,ismpl); 
+ 
+ @ Check Number of Observations @
+ tmp=packr(yt~xt);
+ yt=tmp[.,1:ns];
+ xt=tmp[.,ns+1:cols(tmp)];
+ 
+ @ Construct GLS Estimates of Regression Coefficients @
+  nt=rows(yt);  @ Number of time periods @
+  ny=cols(yt);  @ Number of equations @
+  nr=cols(xt);  @ Total Number of regressors @
+  @ Step 1: Form y and x matrix for stacked system @
+  y=vec(yt);
+  x=zeros(nt*ny,nr);
+  jj=0;
+  i=1; do while i <= ny;
+   ii=(i-1)*nt;
+   x[ii+1:ii+nt,jj+1:jj+nregvec[i]]=xt[.,jj+1:jj+nregvec[i]];
+   jj=jj+nregvec[i];
+  i=i+1; endo;
+  
+  bols=invpd(x'x)*(x'y);
+  e=y-x*bols;
+  u=(reshape(e,ny,nt))';
+  seps=u'u/nt;
+  sepsinv=invpd(seps);
+  q=sepsinv.*.eye(nt);
+  bgls=(invpd(x'q*x))*(x'q*y);
+  e=y-x*bgls;
+  u=(reshape(e,ny,nt))';
+  
+  e=u;  @ Change notation for use in EM @
+  ee=e'e;
+  seps=(e'e)/(rows(e));
+  seps_inv=invpd(seps);
+  det_seps=det(seps);
+  tmp=seps_inv*ee;
+  un_lf=-0.5*(rows(e)*ln(det_seps) + sumc(diag(tmp))); @ Unrestricted log-likelihood @ 
+  
+  @ Initialize for EM @
+    @ initial values @
+    vuuvec = diag(seps)/sqrt(2);
+    vuu=diagrv(eye(ns),vuuvec);
+    lam=sqrt(vuuvec).*hvec;
+    vff=eye(cols(hvec));
+  
+  @ EM Iterations @
+
+  irep=1; do while irep <= nem;
+   vee=lam*vff*lam' + vuu;
+   vee_i=invpd(vee);
+   det_vee=det(vee);
+   if irep .== nem;
+    tmp=vee_i*ee;
+    lf=-0.5*(rows(e)*ln(det_vee) + sumc(diag(tmp)));
+   endif;
+
+   @ Regression Coefficients @
+
+   psi=vff*lam'invpd(vee);
+   vff_e=vff-psi*lam*vff;
+   fhat=e*psi';
+ 
+   @ Compute Sufficient statistics given e @
+   ef=e'fhat;
+   ff=fhat'fhat+vff_e*rows(fhat);
+ 
+   @ Construct new estimate of lambda @
+   i=1; do while i <= rows(hvec);
+    nfm=sumc(hvec[i,.]');
+    xxy=zeros(nfm,1);
+    xx=zeros(nfm,nfm);
+    jx=0;
+    j=1; do while j <= cols(hvec);
+     if hvec[i,j] .== 1;
+      jx=jx+1;
+      xxy[jx,1]=ef[i,j];
+      kx=0;
+      k=1; do while k <= cols(hvec);
+       if hvec[i,k] .== 1;
+        kx=kx+1;
+        xx[jx,kx]=ff[j,k];
+       endif;
+      k=k+1; endo;
+     endif;
+    j=j+1; endo;
+    lam_i=invpd(xx)*xxy;
+    tmp=ee[i,i]-xxy'lam_i;
+    vuu[i,i]=tmp/rows(e);
+    jx=0;
+    j=1; do while j <= cols(hvec);
+     if hvec[i,j] .== 1;
+      jx=jx+1;
+      lam[i,j]=lam_i[jx];
+     endif;
+    j=j+1; endo;
+   i=i+1; endo;
+  irep=irep+1; endo;
+  "Sample Period";;smplvec[ni,.];
+  "Unrestricted Log Likelihood";;un_lf;
+  "Restricted Log Likelihood";;lf;
+  df_unr=(ns*(ns+1))/2;
+  df_res=(sumc(sumc(hvec)) + ns);
+  df=df_unr-df_res;
+  "Degrees of Freedom";;df;
+  lrstat=2*(un_lf-lf);
+  pvalue=cdfchic(lrstat,df);
+  "LR Stat and Pvalue";;lrstat;;pvalue;
+  "Factor Loadings";
+  lam;
+  "Uniquess SD";
+  (sqrt(diag(vuu)));
+  
+  @ ... Write in standard form ... 
+        Each column shows regression coefficients for 1 equation    @
+  beta=zeros(ns*maxlag,ns);
+  nre=ownlag+(ns-1)*othlag;
+  i=1; do while i <= ns;
+   ii=(i-1)*nre;
+   bcoef=bgls[ii+1:ii+nre];
+   j=1; do while j <= ownlag;
+    jj=(j-1)*ns;
+    beta[jj+i,i]=bcoef[j];
+   j=j+1; endo;
+   ii=ownlag;
+   j=1; do while j <= othlag;
+    jj=(j-1)*ns;
+    ik=0;
+    k=1; do while k <= ns;
+     if k ./= i;
+      mm=ownlag+ik*othlag;
+      beta[jj+k,i]=bcoef[mm+j];
+      ik=ik+1;
+     endif;
+    k=k+1; endo;
+   j=j+1; endo;
+  i=i+1; endo;  
+  
+ @ ---- Calculate Companion Matrix ---- @
+ b=beta';
+ comp=zeros(cols(b),cols(b));
+ comp[1:rows(b),.]=b;
+ if cols(b) .> rows(b);
+  comp[rows(b)+1:rows(comp),1:cols(comp)-rows(b)]=eye(cols(comp)-rows(b));
+ endif;
+ @ -- Write Model in SS Form --
+     y(t) = Q*z(t)
+     z(t) = M*z(t-1) + G*u(t)
+     var(u(t)) = I
+ @
+ m=comp;
+ q=zeros(ns,rows(m));
+ q[1:ns,1:ns]=eye(ns);
+ g=zeros(cols(m),nf+ns);
+ g[1:ns,1:nf]=lam;
+ g[1:ns,nf+1:nf+ns]=sqrt(vuu);
+
+ @ Calculate Spectral Density Matrix of this VAR --- @ 
+   @ .. All Shocks ... Total Spectrum ... @
+   tmp=ns*(ns+1)/2;
+   svlev=zeros(tmp,nord);
+   sv4dif=zeros(tmp,nord);
+   j=1; do while j<= nord;
+    w=wvec[j];
+    spdif=spmodh(q,m,g,w);  @ Spectrum of VAR @
+    @ Convert to Spectrum of Levels @
+    let im = 0+1i;
+    z=exp(-w*im);az=1-z;  @ az is first difference filter @
+    azi=inv(az);          @ azi is the accumulation operator @
+    a=azi*azi';
+    splev=a*spdif;
+    acz=1+z+z.^2+z.^3;    @ 4 quarter sum @
+    acz2=acz*acz';
+    sp4dif=acz2*spdif;
+    svlev[.,j]=vech(splev);
+    sv4dif[.,j]=vech(sp4dif);
+   j=j+1; endo;
+  
+   @ Note: Variance of Series is given by average value over all ordinates  @
+   asvlev=abs(svlev');         @ Absolute value of Spectrum @  
+   abpbc=selif(asvlev,ibc);    @ Over Relevant Frequencies @
+   rsvlev=real(svlev');        @ Real part of spectrum @  
+   rbpbc=selif(rsvlev,ibc);    @ Over Relevant Frequencies @
+   
+   i=1; do while i <= ns;
+    ii=i*(i+1)/2;
+    bpsd[i]=sqrt(sumc(rbpbc[.,ii])/nord);
+   i=i+1; endo;
+   i=1; do while i <= ns;
+    j=1; do while j <= i;
+     ii=i*(i+1)/2;
+     jj=j*(j+1)/2;
+     i1=i*(i-1)/2;
+     cspec=(abpbc[.,i1+j].^2)./(abpbc[.,ii].*abpbc[.,jj]);
+     bpcoh[i,j]=meanc(sqrt(cspec));   
+     bpcor[i,j]=(sumc(rbpbc[.,i1+j])/nord)/(bpsd[i]*bpsd[j]);
+    j=j+1; endo;
+   i=i+1; endo;
+
+   @ Note: Variance of Series is given by average value over all ordinates  @
+   asv4dif=abs(sv4dif');         @ Absolute value of Spectrum @  
+   rsv4dif=real(sv4dif');        @ Real part of spectrum @  
+   
+   i=1; do while i <= ns;
+    ii=i*(i+1)/2;
+    d4sd[i]=sqrt(sumc(rsv4dif[.,ii])/nord);
+   i=i+1; endo;
+   i=1; do while i <= ns;
+    j=1; do while j <= i;
+     ii=i*(i+1)/2;
+     jj=j*(j+1)/2;
+     i1=i*(i-1)/2;
+     /*
+     cspec=(asv4dif[.,i1+j].^2)./(asv4dif[.,ii].*asv4dif[.,jj]);
+     d4coh[i,j]=meanc(sqrt(cspec)); 
+     */
+     cspecn=(sumc(asv4dif[.,i1+j].^2));
+     cspecdi=sqrt(sumc(asv4dif[.,ii].^2));
+     cspecdj=sqrt(sumc(asv4dif[.,jj].^2));         
+     d4coh[i,j]=sqrt((cspecn/(cspecdi*cspecdj)));
+     d4cor[i,j]=(sumc(rsv4dif[.,i1+j])/nord)/(d4sd[i]*d4sd[j]);
+    j=j+1; endo;
+   i=i+1; endo;
+
+ "Period";;smplvec[ni,.];
+ "Number of Observations";;nt;
+ "Period Specific Shocks and System";
+ "D4 Series";
+ "sd";100*d4sd';
+ "Average Coherence ... All Frequencies"; 
+ d4coh;
+ "Correlation ... All Frequencies"; 
+ d4cor; 
+ "BP Series";
+ "sd";100*bpsd';
+ "Average Coherence ... BC Frequencies"; 
+ bpcoh;
+ "Correlation ... BC Frequencies"; 
+ bpcor; 
+
+@ Counterfactual xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx @
+
+ @ ---- Calculate Companion Matrix ---- @
+ b=beta';
+ comp=zeros(cols(b),cols(b));
+ comp[1:rows(b),.]=b;
+ if cols(b) .> rows(b);
+  comp[rows(b)+1:rows(comp),1:cols(comp)-rows(b)]=eye(cols(comp)-rows(b));
+ endif;
+ @ -- Write Model in SS Form --
+     y(t) = Q*z(t)
+     z(t) = M*z(t-1) + G*u(t)
+     var(u(t)) = I
+ @
+ m=comp;
+ q=zeros(ns,rows(m));
+ q[1:ns,1:ns]=eye(ns);
+ g=zeros(cols(m),nf+ns);
+ g[1:ns,1:nf]=lam;
+ g[1:ns,nf+1:nf+ns]=sqrt(vuu);
+
+ if ni .== 1;
+  sfac=sdrat;
+ elseif ni .== 2;
+  sfac=1./sdrat;
+ else;
+  "only 2 periods allowed"; stop;
+ endif;
+ g=g.*sfac';
+  
+
+ @ Calculate Spectral Density Matrix of this VAR --- @ 
+   @ .. All Shocks ... Total Spectrum ... @
+   tmp=ns*(ns+1)/2;
+   svlev=zeros(tmp,nord);
+   sv4dif=zeros(tmp,nord);
+   j=1; do while j<= nord;
+    w=wvec[j];
+    spdif=spmodh(q,m,g,w);  @ Spectrum of VAR @
+    @ Convert to Spectrum of Levels @
+    let im = 0+1i;
+    z=exp(-w*im);az=1-z;  @ az is first difference filter @
+    azi=inv(az);          @ azi is the accumulation operator @
+    a=azi*azi';
+    splev=a*spdif;
+    acz=1+z+z.^2+z.^3;    @ 4 quarter sum @
+    acz2=acz*acz';
+    sp4dif=acz2*spdif;
+    svlev[.,j]=vech(splev);
+    sv4dif[.,j]=vech(sp4dif);
+   j=j+1; endo;
+  
+   @ Note: Variance of Series is given by average value over all ordinates  @
+   asvlev=abs(svlev');         @ Absolute value of Spectrum @  
+   abpbc=selif(asvlev,ibc);    @ Over Relevant Frequencies @
+   rsvlev=real(svlev');        @ Real part of spectrum @  
+   rbpbc=selif(rsvlev,ibc);    @ Over Relevant Frequencies @
+   
+   i=1; do while i <= ns;
+    ii=i*(i+1)/2;
+    bpsd[i]=sqrt(sumc(rbpbc[.,ii])/nord);
+   i=i+1; endo;
+   i=1; do while i <= ns;
+    j=1; do while j <= i;
+     ii=i*(i+1)/2;
+     jj=j*(j+1)/2;
+     i1=i*(i-1)/2;
+     cspec=(abpbc[.,i1+j].^2)./(abpbc[.,ii].*abpbc[.,jj]);
+     bpcoh[i,j]=meanc(sqrt(cspec));   
+     bpcor[i,j]=(sumc(rbpbc[.,i1+j])/nord)/(bpsd[i]*bpsd[j]);
+    j=j+1; endo;
+   i=i+1; endo;
+
+   @ Note: Variance of Series is given by average value over all ordinates  @
+   asv4dif=abs(sv4dif');         @ Absolute value of Spectrum @  
+   rsv4dif=real(sv4dif');        @ Real part of spectrum @  
+   
+   i=1; do while i <= ns;
+    ii=i*(i+1)/2;
+    d4sd[i]=sqrt(sumc(rsv4dif[.,ii])/nord);
+   i=i+1; endo;
+   i=1; do while i <= ns;
+    j=1; do while j <= i;
+     ii=i*(i+1)/2;
+     jj=j*(j+1)/2;
+     i1=i*(i-1)/2;
+     /*
+     cspec=(asv4dif[.,i1+j].^2)./(asv4dif[.,ii].*asv4dif[.,jj]);
+     d4coh[i,j]=meanc(sqrt(cspec));   
+     */
+     cspecn=(sumc(asv4dif[.,i1+j].^2));
+     cspecdi=sqrt(sumc(asv4dif[.,ii].^2));
+     cspecdj=sqrt(sumc(asv4dif[.,jj].^2));         
+     d4coh[i,j]=sqrt((cspecn/(cspecdi*cspecdj)));
+     d4cor[i,j]=(sumc(rsv4dif[.,i1+j])/nord)/(d4sd[i]*d4sd[j]);
+    j=j+1; endo;
+   i=i+1; endo;
+
+ "Period";;smplvec[ni,.];
+ "Number of Observations";;nt;
+ "Counter factual Shock variances";
+ "D4 Series";
+ "sd";100*d4sd';
+ "Average Coherence ... All Frequencies"; 
+ d4coh;
+ "Correlation ... All Frequencies"; 
+ d4cor; 
+ "BP Series";
+ "sd";100*bpsd';
+ "Average Coherence ... BC Frequencies"; 
+ bpcoh;
+ "Correlation ... BC Frequencies"; 
+ bpcor; 
+
+@ Counterfactual xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx @
+
+ @ ---- Calculate Companion Matrix ---- @
+ b=beta';
+ comp=zeros(cols(b),cols(b));
+ comp[1:rows(b),.]=b;
+ if cols(b) .> rows(b);
+  comp[rows(b)+1:rows(comp),1:cols(comp)-rows(b)]=eye(cols(comp)-rows(b));
+ endif;
+ @ -- Write Model in SS Form --
+     y(t) = Q*z(t)
+     z(t) = M*z(t-1) + G*u(t)
+     var(u(t)) = I
+ @
+ m=comp;
+ q=zeros(ns,rows(m));
+ q[1:ns,1:ns]=eye(ns);
+ g=zeros(cols(m),nf+ns);
+ g[1:ns,1:nf]=lam;
+ g[1:ns,nf+1:nf+ns]=sqrt(vuu);
+
+ if ni .== 1;
+  sfac=sdrat;
+ elseif ni .== 2;
+  sfac=1./sdrat;
+ else;
+  "only 2 periods allowed"; stop;
+ endif;
+ g[.,1:2]=g[.,1:2].*sfac[1:2]';
+  
+
+ @ Calculate Spectral Density Matrix of this VAR --- @ 
+   @ .. All Shocks ... Total Spectrum ... @
+   tmp=ns*(ns+1)/2;
+   svlev=zeros(tmp,nord);
+   sv4dif=zeros(tmp,nord);
+   j=1; do while j<= nord;
+    w=wvec[j];
+    spdif=spmodh(q,m,g,w);  @ Spectrum of VAR @
+    @ Convert to Spectrum of Levels @
+    let im = 0+1i;
+    z=exp(-w*im);az=1-z;  @ az is first difference filter @
+    azi=inv(az);          @ azi is the accumulation operator @
+    a=azi*azi';
+    splev=a*spdif;
+    acz=1+z+z.^2+z.^3;    @ 4 quarter sum @
+    acz2=acz*acz';
+    sp4dif=acz2*spdif;
+    svlev[.,j]=vech(splev);
+    sv4dif[.,j]=vech(sp4dif);
+   j=j+1; endo;
+  
+   @ Note: Variance of Series is given by average value over all ordinates  @
+   asvlev=abs(svlev');         @ Absolute value of Spectrum @  
+   abpbc=selif(asvlev,ibc);    @ Over Relevant Frequencies @
+   rsvlev=real(svlev');        @ Real part of spectrum @  
+   rbpbc=selif(rsvlev,ibc);    @ Over Relevant Frequencies @
+   
+   i=1; do while i <= ns;
+    ii=i*(i+1)/2;
+    bpsd[i]=sqrt(sumc(rbpbc[.,ii])/nord);
+   i=i+1; endo;
+   i=1; do while i <= ns;
+    j=1; do while j <= i;
+     ii=i*(i+1)/2;
+     jj=j*(j+1)/2;
+     i1=i*(i-1)/2;
+     cspec=(abpbc[.,i1+j].^2)./(abpbc[.,ii].*abpbc[.,jj]);
+     bpcoh[i,j]=meanc(sqrt(cspec));   
+     bpcor[i,j]=(sumc(rbpbc[.,i1+j])/nord)/(bpsd[i]*bpsd[j]);
+    j=j+1; endo;
+   i=i+1; endo;
+
+   @ Note: Variance of Series is given by average value over all ordinates  @
+   asv4dif=abs(sv4dif');         @ Absolute value of Spectrum @  
+   rsv4dif=real(sv4dif');        @ Real part of spectrum @  
+   
+   i=1; do while i <= ns;
+    ii=i*(i+1)/2;
+    d4sd[i]=sqrt(sumc(rsv4dif[.,ii])/nord);
+   i=i+1; endo;
+   i=1; do while i <= ns;
+    j=1; do while j <= i;
+     ii=i*(i+1)/2;
+     jj=j*(j+1)/2;
+     i1=i*(i-1)/2;
+/*     
+     cspec=(asv4dif[.,i1+j].^2)./(asv4dif[.,ii].*asv4dif[.,jj]);
+     d4coh[i,j]=meanc(sqrt(cspec));   
+*/
+     cspecn=(sumc(asv4dif[.,i1+j].^2));
+     cspecdi=sqrt(sumc(asv4dif[.,ii].^2));
+     cspecdj=sqrt(sumc(asv4dif[.,jj].^2));         
+     d4coh[i,j]=sqrt((cspecn/(cspecdi*cspecdj))); 
+     d4cor[i,j]=(sumc(rsv4dif[.,i1+j])/nord)/(d4sd[i]*d4sd[j]);
+    j=j+1; endo;
+   i=i+1; endo;
+
+ "Period";;smplvec[ni,.];
+ "Number of Observations";;nt;
+ "Counter factual Factor variances";
+ "D4 Series";
+ "sd";100*d4sd';
+ "Average Coherence ... All Frequencies"; 
+ d4coh;
+ "Correlation ... All Frequencies"; 
+ d4cor; 
+ "BP Series";
+ "sd";100*bpsd';
+ "Average Coherence ... BC Frequencies"; 
+ bpcoh;
+ "Correlation ... BC Frequencies"; 
+ bpcor; 
+  
+ni=ni+1; endo;
+
+ 
+
+@ Compute Direct Measure of d4 correlation @
+@ .. Read in Series @
+d4=miss(zeros(dnobs,ns),0);
+d4[4:dnobs,.]=s[4:dnobs,.]+s[3:dnobs-1,.]+s[2:dnobs-2,.]+s[1:dnobs-3,.];
+d4=100*d4;
+ni=1; do while ni <= rows(smplvec);
+ "Sample Period";; smplvec[ni,.];
+ ismpl = (calvec .>= smplvec[ni,1]-small) .* (calvec .<= smplvec[ni,2]-small);
+ x=selif(d4,ismpl);
+ x=packr(x);
+ x=x-meanc(x)';
+ xx=x'x;
+ d=sqrt(diag(xx));
+ d2=d*d';
+ c=xx./d2;
+ " Raw 4 Quarter Difs";
+ "Period ";smplvec[ni,.];
+ "nobs";;rows(x);
+ "Std X";
+ stdc(x);
+ c;
+ni=ni+1; endo;
+
+
+output off;

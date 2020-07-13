@@ -1,0 +1,86 @@
+/*
+    Fig1_01.gss, 5/7/03, mww
+    Graph Growth Rates for Series
+*/
+new;
+library pgraph;
+graphset;
+outwidth 200;
+ofile="fig1.out";  @ Output File Name @
+iext="q50";            @ Data Extension -- input @
+nfy=1950;              @ First Year @
+nfp=1;                 @ First Period of Year @
+nly=2002;              @ Last Year @
+nlp=4;                 @ Last Period of Year @
+nper=4;                       @ Number of Periods Per Year @
+dpath="c:\\g7\\data\\";       @ Data Path @
+missc=1.0e+032;        @ Missing Value Code in ASCII Files @
+
+efy=1960;              @ First Year for estimation @
+efp=1;                 @ First Period for estimation @
+ely=2002;              @ Last Year for estimation @
+elp=4;                 @ Last Period for estimation @
+
+small=1.0e-06;
+
+dnobs=nper*(nly-nfy-1)+nlp+(nper+1-nfp);        @ - Number of Obs, data - @
+calvec=seqa(nfy+(nfp-1)/nper,1/nper,dnobs);     @ -- Calendar Vector -- @
+nfirst=nper*(efy-nfy-1)+efp+(nper+1-nfp);       @ -- index of first estimation period -- @
+nlast=nper*(ely-nfy-1)+elp+(nper+1-nfp);        @ -- index of last estimation period -- @
+
+load path = ^dpath;
+
+#include fcst.prc;
+#include udatain.prc;
+#include spmodh.prc;
+
+cname=
+"cn" $|
+"fr" $|
+"bd" $|
+"it" $|
+"jp" $|
+"uk" $|
+"us" ;
+
+ns=rows(cname);  @ Number of Series @
+
+clab=
+"A. Canada" $|
+"B. France" $|
+"C. Germany" $|
+"D. Italy" $|
+"E. Japan" $|
+"F. U.K." $|
+"G. U.S." ;
+
+output file = ^ofile reset; output on;
+outwidth 200;
+format /ro 16,6;
+
+@ .. Read in Series @
+s=miss(zeros(dnobs,ns),0);
+imark=1; do while imark <= ns;
+ ystr="" $+ cname[imark,1] $+ "gdppc." $+ iext;
+ ydata=udatain(ystr,missc,dnobs);
+ s[5:dnobs,imark]=100*ln(ydata[5:dnobs]./ydata[1:dnobs-4]);
+imark=imark+1; endo;
+
+_pdate = "";
+_pltype = 6|6;
+_plwidth = 3|1;
+_ptek="Fig1_01.tkf";
+xtics(1960,2005,5,1);
+ytics(-6.0,12.0,2,0);
+begwind;
+window(3,3,0);
+setwind(1);
+i=1; do while i <= rows(cname);
+ title(clab[i]);
+ y=s[.,i]~zeros(dnobs,1);
+ xy(calvec,y);
+ nextwind;
+i=i+1; endo;
+endwind;
+
+ 

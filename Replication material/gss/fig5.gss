@@ -1,0 +1,65 @@
+/*
+    Fig5.gss, 5/7/03, mww
+    Graph sum of AR coefficient and SD of Reg Error
+*/
+new;
+library pgraph;
+graphset;
+outwidth 200;
+savpath="c:\\g7\\gss\\fmt\\"; @ Save Path @
+load path = ^savpath;
+str="sumar_exp";
+load tmp=^str;
+calvec=tmp[.,1];
+sumar=tmp[.,2:cols(tmp)];
+str="sdar_exp";
+load tmp=^str;
+sdar=tmp[.,2:cols(tmp)];
+
+clab=
+"A. Canada" $|
+"B. France" $|
+"C. Germany" $|
+"D. Italy" $|
+"E. Japan" $|
+"F. U.K." $|
+"G. U.S." ;
+
+
+ns=rows(clab);  @ Number of Series @
+
+_pdate = "";
+_pltype = 6|6;
+_plwidth = 3|1;
+_ptek="Fig5a_01.tkf";
+xtics(1960,2000,5,1);
+ytics(-1.0,1.0,0.50,0);
+begwind;
+window(3,3,0);
+setwind(1);
+i=1; do while i <= ns;
+ title(clab[i]);
+ y=sumar[.,i]~zeros(rows(sumar),1);
+ xy(calvec,y);
+ nextwind;
+i=i+1; endo;
+endwind;
+wait;
+
+_pdate = "";
+_pltype = 6|6;
+_plwidth = 3|1;
+_ptek="Fig5b_01.tkf";
+xtics(1960,2000,5,1);
+ytics(2.0,9.0,1.0,0);
+begwind;
+window(3,3,0);
+setwind(1);
+i=1; do while i <= ns;
+ title(clab[i]);
+ y=sdar[.,i];
+ xy(calvec,y);
+ nextwind;
+i=i+1; endo;
+endwind;
+ 

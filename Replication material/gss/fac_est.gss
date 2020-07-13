@@ -1,0 +1,252 @@
+/*
+    fac_est.gss, 6/7/03, mww
+    Compute estimate factors
+*/
+new;
+library pgraph;
+graphset;
+outwidth 200;
+ofile="var_split_fac_tests.out";  @ Output File Name @
+iext="q50";            @ Data Extension -- input @
+nfy=1950;              @ First Year @
+nfp=1;                 @ First Period of Year @
+nly=2002;              @ Last Year @
+nlp=4;                 @ Last Period of Year @
+nper=4;                       @ Number of Periods Per Year @
+dpath="c:\\g7\\data\\";       @ Data Path @
+savpath="c:\\g7\\gss\\fmt\\"; @ Save Path @
+missc=1.0e+032;        @ Missing Value Code in ASCII Files @
+othlag=1;              @ Number of other lags in VAR @
+ownlag=4;              @ number of own lags in VAR @
+nem=1000;              @ Number of EM Reps -- first run @
+
+
+smplvec = 
+(1960.0~2003) |
+(1960.0~1983.99) |
+(1984.0~2003);
+
+small=1.0e-06;
+
+dnobs=nper*(nly-nfy-1)+nlp+(nper+1-nfp);        @ - Number of Obs, data - @
+calvec=seqa(nfy+(nfp-1)/nper,1/nper,dnobs);     @ -- Calendar Vector -- @
+trend=seqa(1,1,dnobs);
+
+load path = ^dpath;
+
+#include fcst.prc;
+#include udatain.prc;
+
+cname=
+"cn" $|
+"fr" $|
+"bd" $|
+"it" $|
+"jp" $|
+"uk" $|
+"us" ;
+
+ns=rows(cname);  @ Number of Series @
+
+clabel=
+"Canada" $|
+"France" $|
+"Germany" $|
+"Italy" $|
+"Japan" $|
+"U.K." $|
+"U.S." ;
+
+let hvec[7,2] = 
+1 1
+1 1
+1 1
+1 1
+1 1 
+1 1
+1 0;
+
+nf=cols(hvec);
+
+output file = ^ofile reset; output on;
+outwidth 200;
+format /ro 16,6;
+
+@ .. Read in Series @
+s=miss(zeros(dnobs,ns),0);
+imark=1; do while imark <= ns;
+ ystr="" $+ cname[imark,1] $+ "gdppc_sm." $+ iext;
+ ydata=udatain(ystr,missc,dnobs);
+ ytran=ydata;    @ Note ... data are already in first differences (detrended) @ 
+ s[.,imark]=ytran;
+imark=imark+1; endo;
+
+/* Carry Out Analysis Period by Period */
+                            
+
+@ Misc Matrices used in calculations @
+maxlag=maxc(ownlag|othlag);
+nreg=ns*(ownlag+(ns-1)*othlag);  @ Number of Regressors @ 
+nregvec=(ownlag+(ns-1)*othlag)*ones(ns,1);  @ Vector with number of regressors in each equation@
+
+ni=1; do while ni <= rows(smplvec);
+ resid_mat=miss(zeros(dnobs,ns),0);  @ Matrix for saving residuals @
+ "Sample Period";; smplvec[ni,.];
+ ismpl = (calvec .>= smplvec[ni,1]-small) .* (calvec .<= smplvec[ni,2]-small);
+ 
+ @ Construct Sample String @
+ smplstr = ftocv(smplvec[ni,1],4,0) $+ ftocv(smplvec[ni,2],4,0);
+ 
+ @ Matrix of Dependent Variables and Calendar @
+ yt=selif(s,ismpl);
+ tt=selif(trend,ismpl);
+
+ @ Construct X Matrix -- Using lags of other series ... unrestricted @
+ xt=miss(zeros(dnobs,nreg),0);
+ i=1; do while i <= ns;
+  ii=(i-1)*(ownlag+(ns-1)*othlag);
+  j=1; do while j <= ownlag;
+   xt[j+1:dnobs,ii+j]=s[1:dnobs-j,i];
+  j=j+1; endo;
+  ii=ii+ownlag;
+  ik=1; do while ik <= ns;
+   if ik ./= i;
+    j=1; do while j <= othlag;
+     xt[j+1:dnobs,ii+j]=s[1:dnobs-j,ik];
+    j=j+1; endo;
+    ii=ii+othlag;
+   endif;
+  ik=ik+1; endo;
+ i=i+1; endo;
+ xt=selif(xt,ismpl); 
+ 
+ @ Check Number of Observations @
+ tmp=packr(tt~yt~xt);
+ tt=tmp[.,1];
+ yt=tmp[.,2:ns+1];
+ xt=tmp[.,ns+2:cols(tmp)];
+ 
+ @ Construct GLS Estimates of Regression Coefficients @
+  nt=rows(yt);  @ Number of time periods @
+  ny=cols(yt);  @ Number of equations @
+  nr=cols(xt);  @ Total Number of regressors @
+  @ Step 1: Form y and x matrix for stacked system @
+  y=vec(yt);
+  x=zeros(nt*ny,nr);
+  jj=0;
+  i=1; do while i <= ny;
+   ii=(i-1)*nt;
+   x[ii+1:ii+nt,jj+1:jj+nregvec[i]]=xt[.,jj+1:jj+nregvec[i]];
+   jj=jj+nregvec[i];
+  i=i+1; endo;
+  
+  bols=invpd(x'x)*(x'y);
+  e=y-x*bols;
+  u=(reshape(e,ny,nt))';
+  seps=u'u/nt;
+  sepsinv=invpd(seps);
+  q=sepsinv.*.eye(nt);
+  bgls=(invpd(x'q*x))*(x'q*y);
+  e=y-x*bgls;
+  u=(reshape(e,ny,nt))';
+  resid_mat[tt[1]:tt[rows(tt)],.]=u;
+
+
+  e=u;  @ Change notation for use in EM @
+  ee=e'e;
+  seps=(e'e)/(rows(e));
+  seps_inv=invpd(seps);
+  chol_seps=chol(seps);
+  c_seps=chol_seps';
+  det_seps=det(seps);
+  tmp=seps_inv*ee;
+  un_lf=-0.5*(rows(e)*ln(det_seps) + sumc(diag(tmp))); @ Unrestricted log-likelihood @ 
+   
+@ Compute Factor Decomposition @
+  @ Initialize for EM @
+    @ initial values @
+    vuuvec = diag(seps)/sqrt(2);
+    vuu=diagrv(eye(ns),vuuvec);
+    lam=sqrt(vuuvec).*hvec;
+    vff=eye(cols(hvec));
+  
+  @ EM Iterations @
+
+  irep=1; do while irep <= nem;
+   vee=lam*vff*lam' + vuu;
+   vee_i=invpd(vee);
+   det_vee=det(vee);
+   if irep .== nem;
+    tmp=vee_i*ee;
+    lf=-0.5*(rows(e)*ln(det_vee) + sumc(diag(tmp)));
+   endif;
+
+   @ Regression Coefficients @
+
+   psi=vff*lam'invpd(vee);
+   vff_e=vff-psi*lam*vff;
+   fhat=e*psi';
+ 
+   @ Compute Sufficient statistics given e @
+   ef=e'fhat;
+   ff=fhat'fhat+vff_e*rows(fhat);
+ 
+   @ Construct new estimate of lambda @
+   i=1; do while i <= rows(hvec);
+    nfm=sumc(hvec[i,.]');
+    xxy=zeros(nfm,1);
+    xx=zeros(nfm,nfm);
+    jx=0;
+    j=1; do while j <= cols(hvec);
+     if hvec[i,j] .== 1;
+      jx=jx+1;
+      xxy[jx,1]=ef[i,j];
+      kx=0;
+      k=1; do while k <= cols(hvec);
+       if hvec[i,k] .== 1;
+        kx=kx+1;
+        xx[jx,kx]=ff[j,k];
+       endif;
+      k=k+1; endo;
+     endif;
+    j=j+1; endo;
+    lam_i=invpd(xx)*xxy;
+    tmp=ee[i,i]-xxy'lam_i;
+    vuu[i,i]=tmp/rows(e);
+    jx=0;
+    j=1; do while j <= cols(hvec);
+     if hvec[i,j] .== 1;
+      jx=jx+1;
+      lam[i,j]=lam_i[jx];
+     endif;
+    j=j+1; endo;
+   i=i+1; endo;
+  irep=irep+1; endo;
+  "Sample Period";;smplvec[ni,.];
+  "Unrestricted Log Likelihood";;un_lf;
+  "Restricted Log Likelihood";;lf;
+  df_unr=(ns*(ns+1))/2;
+  df_res=(sumc(sumc(hvec)) + ns);
+  df=df_unr-df_res;
+  "Degrees of Freedom";;df;
+  lrstat=2*(un_lf-lf);
+  pvalue=cdfchic(lrstat,df);
+  "LR Stat and Pvalue";;lrstat;;pvalue;
+  "Factor Loadings";
+  lam;
+  "Uniquess SD";
+  (sqrt(diag(vuu)));
+  "";"";
+  
+  @ Compute Regression Coefficients of Factors onto Residuals @
+  betafac=lam'vee_i;
+  betau=vuu*vee_i;
+  fachat=resid_mat*betafac'; @ Estimated Factor @  
+  uhat=resid_mat*betau';     @ Estimated Uniqueness @
+  
+  @ Save Matrix of Factors @
+  sstr=savpath $+ "fachat_" $+ smplstr; 
+  save ^sstr=fachat;  
+ 
+ni=ni+1; endo;
+
