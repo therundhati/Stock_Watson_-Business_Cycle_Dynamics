@@ -1,0 +1,151 @@
+*
+* GDP_DATA_1.rts
+* mww, 5/27/03
+*
+* Construct GDP Data from basic sources
+* Compare the resulting series to series supplied by Brian Doyle and Jon Faust
+*
+*
+*
+env echo
+cal 1950 1 4
+all 0 2002:4
+****
+**** Canada 
+****
+open data cngdp$$$d.q50
+data(for=free,org=obs,missing=1.0e+32) / cngdp$$$d
+close data
+open data cnona017g.q50
+data(for=free,org=obs,missing=1.0e+32) / cnona017g
+close data
+compute rat = cngdp$$$d(1961:1)/ cnona017g(1961:1);
+set cngdp 1961:1 2002:4 = cngdp$$$d(t)
+set cngdp 1960:1 1960:4 = cnona017g(t)*rat
+****
+**** France
+****
+open data frgdp$$$d.q50
+data(for=free,org=obs,missing=1.0e+32) / frgdp$$$d
+close data
+open data frona017g.q50
+data(for=free,org=obs,missing=1.0e+32) / frona017g
+close data
+compute rat = frgdp$$$d(1978:1)/ frona017g(1978:1);
+set frgdp 1978:1 2002:4 = frgdp$$$d(t)
+set frgdp 1960:1 1977:4 = frona017g(t)*rat
+****
+**** Germany
+****
+open data bdgdp$$$d.q50
+data(for=free,org=obs,missing=1.0e+32) / bdgdp$$$d
+close data
+set bdgdp / = bdgdp$$$d(t)
+****
+**** Italy
+****
+open data itgdp$$$d.q50
+data(for=free,org=obs,missing=1.0e+32) / itgdp$$$d
+close data
+open data df_gdp.asc
+data(for=free,org=obs) 1960:1 2002:4 dt dfus dfuk dfjp dfca dfbd dffr dfit
+close data
+compute rat = itgdp$$$d(1970:1)/ dfit(1970:1);
+set itgdp 1970:1 2002:4 = itgdp$$$d(t)
+set itgdp 1960:1 1969:4 = dfit(t)*rat
+****
+**** Japan
+****
+open data JPONA017G.q50
+data(for=free,org=obs,missing=1.0e+32) / JPONA017G
+close data
+set jpgdp / = JPONA017G(t)
+****
+**** UK
+****
+open data ukgdp$$$d.q50
+data(for=free,org=obs,missing=1.0e+32) / ukgdp$$$d
+close data
+set ukgdp / = ukgdp$$$d(t)
+****
+**** US
+****
+open data gdpq.q50
+data(for=free,org=obs,missing=1.0e+32) / gdpq
+close data
+set usgdp / = gdpq(t)
+*
+* Compare to Doyle and Faust Data
+*
+open data \jh\data\doyle_faust\df_gdp.asc
+data(for=free,org=obs) 1960:1 2002:4 dt dfus dfuk dfjp dfca dfbd dffr dfit
+close data
+
+smpl 1960:2 2002:4
+set d1_us / = 400*log(usgdp(t)/usgdp(t-1))
+set d1_uk / = 400*log(ukgdp(t)/ukgdp(t-1))
+set d1_fr / = 400*log(frgdp(t)/frgdp(t-1))
+set d1_it / = 400*log(itgdp(t)/itgdp(t-1))
+set d1_bd / = 400*log(bdgdp(t)/bdgdp(t-1))
+set d1_cn / = 400*log(cngdp(t)/cngdp(t-1))
+set d1_jp / = 400*log(jpgdp(t)/jpgdp(t-1))
+
+set d2_us / = 400*log(dfus(t)/dfus(t-1))
+set d2_uk / = 400*log(dfuk(t)/dfuk(t-1))
+set d2_fr / = 400*log(dffr(t)/dffr(t-1))
+set d2_it / = 400*log(dfit(t)/dfit(t-1))
+set d2_bd / = 400*log(dfbd(t)/dfbd(t-1))
+set d2_cn / = 400*log(dfca(t)/dfca(t-1))
+set d2_jp / = 400*log(dfjp(t)/dfjp(t-1))
+
+set d / = d1_cn(t)-d2_cn(t)
+print(dates) / d1_cn d2_cn d
+
+set d / = d1_fr(t)-d2_fr(t)
+print(dates) / d1_fr d2_fr d
+
+set d / = d1_bd(t)-d2_bd(t)
+print(dates) / d1_bd d2_bd d
+
+set d / = d1_it(t)-d2_it(t)
+print(dates) / d1_it d2_it d
+
+set d / = d1_jp(t)-d2_jp(t)
+print(dates) / d1_jp d2_jp d
+
+set d / = d1_uk(t)-d2_uk(t)
+print(dates) / d1_uk d2_uk d
+
+set d / = d1_us(t)-d2_us(t)
+print(dates) / d1_us d2_us d
+
+* Print Series to disk 
+*
+smpl 1950:1 2002:4
+open copy cngdp.r50
+copy(org=obs,for=free) / cngdp
+close copy
+
+open copy frgdp.r50
+copy(org=obs,for=free) / frgdp
+close copy
+
+open copy bdgdp.r50
+copy(org=obs,for=free) / bdgdp
+close copy
+
+open copy itgdp.r50
+copy(org=obs,for=free) / itgdp
+close copy
+
+open copy jpgdp.r50
+copy(org=obs,for=free) / jpgdp
+close copy
+
+open copy ukgdp.r50
+copy(org=obs,for=free) / ukgdp
+close copy
+
+open copy usgdp.r50
+copy(org=obs,for=free) / usgdp
+close copy

@@ -1,0 +1,162 @@
+/* pop_a_to_q.gss, mww 3/18/03
+   Convert Annual Population Data to Quarterly Data
+*/
+new;
+library pgraph;
+graphset;
+_pdate="";
+
+cname=
+"cn" $|
+"fr" $|
+"it" $|
+"jp" $|
+"uk" $|
+"us" ;
+
+load x[] = g6_pop.a50;
+ny=rows(x)/6;
+load x[ny,6]=g6_pop.a50;
+ty=seqa(1950,1,53);
+/*i=1; do while i <= 6;
+ title(cname[i]);
+ xy(ty,x[.,i]);
+ wait;
+i=i+1; endo;
+*/
+
+@ Log-linear Interpolation @
+y=zeros(4*rows(x),cols(x));
+lx=ln(x);
+i=1; do while i <= cols(x);
+ j=2; do while j <= rows(x);
+  jj=(j-2)*4+2;
+   d=(lx[j,i]-lx[j-1,i])/4;
+   y[jj,i]=lx[j-1,i];
+   y[jj+1,i]=lx[j-1,i]+d;
+   y[jj+2,i]=lx[j-1,i]+2*d;
+   y[jj+3,i]=lx[j-1,i]+3*d;
+   if j .== 2;
+    y[jj-1,i]=lx[j-1,i]-d;
+   endif;
+   if j .== rows(x);
+    y[jj+4,i]=lx[j,i];
+    y[jj+5,i]=lx[j,i]+d;
+    y[jj+6,i]=lx[j,i]+2*d;
+   endif;
+ j=j+1; endo;
+i=i+1; endo;
+y=exp(y);
+tq=seqa(1950,.25,4*53);
+/*
+i=1; do while i <= 6;
+ title(cname[i]);
+ xy(tq,y[.,i]);
+ wait;
+i=i+1; endo;
+*/
+
+@ -- Save these Data --- @
+i=1; do while i <= cols(y);
+ format /ro 16,6;
+ ystr = cname[i] $+ "pop.q50";
+ output file = ^ystr reset; output on;
+ y[.,i];
+ output off;
+i=i+1; endo;
+
+
+
+
+@ -- For Germany Set up Series which is WG 1950-1990 and Pan-Germany 1991 ->
+     This matches the NIPA data @
+
+
+@ -- Population Data for Germany -- @
+                                                                          
+cname=
+"bdall" $|
+"wg";
+load x[] = bd_pop.a50;
+ny=rows(x)/2;
+load x[ny,2]=bd_pop.a50;
+x=miss(x,"NA");
+ty=seqa(1950,1,53);
+
+@ Log-linear Interpolation @
+y=miss(zeros(4*rows(x),cols(x)),0);
+lx=ln(x);
+i=1; do while i <= cols(x);
+ ifirst=0;
+ ilast=0;
+ j=2; do while j <= rows(x);
+  jj=(j-2)*4+2;
+   d=(lx[j,i]-lx[j-1,i])/4;
+   if ifirst == 0;
+    if ismiss(d) == 0;
+     ifirst=1;
+    endif;
+   endif;
+   if ilast == 0;
+    if j == rows(x);
+     ilast=1;
+    elseif (ismiss(d)==0) and (ismiss(x[j+1,i])==1);
+     ilast=1;
+    endif;
+   endif;
+   y[jj,i]=lx[j-1,i];
+   y[jj+1,i]=lx[j-1,i]+d;
+   y[jj+2,i]=lx[j-1,i]+2*d;
+   y[jj+3,i]=lx[j-1,i]+3*d;
+   if ifirst .== 1;
+    y[jj-1,i]=lx[j-1,i]-d;
+    ifirst=2;
+   endif;
+   if ilast .== 1;
+    y[jj+4,i]=lx[j,i];
+    y[jj+5,i]=lx[j,i]+d;
+    y[jj+6,i]=lx[j,i]+2*d;
+    ilast=2;
+   endif;
+ j=j+1; endo;
+i=i+1; endo;
+y=exp(y);
+tq=seqa(1950,.25,4*53);
+
+/*
+i=1; do while i <= 2;
+ title(cname[i]);
+ xy(tq,y[.,i]);
+ wait;
+i=i+1; endo;
+*/
+y=missrv(y,1e+32);
+
+
+@ -- Save these Data --- @
+i=1; do while i <= cols(y);
+ format /ro 16,6;
+ ystr = cname[i] $+ "pop.q50";
+ output file = ^ystr reset; output on;
+ y[.,i];
+ output off;
+i=i+1; endo;
+
+
+@ -- Results for Germany -- @
+ load wgpop[]=wgpop.q50;    @ West Germany @
+ load gpop[]=bdallpop.q50;  @ All Germany @
+ wgpop=miss(wgpop,1e+32);
+ gpop=miss(gpop,1e+32);
+ @ Merge the series ... use WG pre 1991, total post 1990 @
+ is1 = tq .< 1991;
+ is2 = tq .> 1990.99;
+ wg1=selif(wgpop,is1);
+ bd1=selif(gpop,is2);
+ popu=wg1|bd1;
+ format /ro 16,6;
+ ystr = "bdpop.q50";
+ output file = ^ystr reset; output on;
+  popu;
+ output off;
+ 

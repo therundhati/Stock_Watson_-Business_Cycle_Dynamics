@@ -1,0 +1,108 @@
+/* pop_adj_df.gss
+   convert to per capita series
+   mww, 5/27/03
+   *
+*/
+new;
+
+library pgraph;
+graphset;
+_pltype=6|6;
+
+missc = 1.0e+32;
+
+thr=5;    @ Outlier Adjustment @
+
+#include \g7\gss\fcst.prc;
+
+
+tq=seqa(1950,.25,4*53);
+cname=
+"cn" $|
+"fr" $|
+"bd" $|
+"it" $|
+"jp" $|
+"uk" $|
+"us" ;
+
+i=1; do while i <= rows(cname);
+ @ Read in Population Data @
+ ystr=cname[i] $+ "pop.q50";
+ load popu[]=^ystr;
+ 
+  ystr=cname[i] $+ "gdp.q50";
+  ystr;
+  load x[]=^ystr;
+  y=miss(x,missc);
+  ypc=y./popu;
+
+  @ -- Check Data for Problems ... adjust if necessary -- @
+  if cname[i] .$== "bd";
+   @ -- threshold chosen so that gdp outliers at unification @
+   ypc=datacheck(ypc,tq,5,3.5,1);
+  else;
+   ypc=datacheck(ypc,tq,5,thr,1); 
+  endif;  
+
+  @ -- Graph Transformed Series -- @
+  title(ystr);
+  d1=miss(0,0)|400*ln(ypc[2:rows(y)]./ypc[1:rows(y)-1]); 
+  xy(tq,d1);
+  wait;
+    
+  @ -- Write Data to disk -- @ 
+  ypc=missrv(ypc,1e+32);
+  ystr=cname[i] $+ "gdppc.q50";
+  format /ro 16,7;
+  output file = ^ystr reset; output on;
+  screen off;
+   ypc;
+  screen on;
+  output off;
+  "";
+i=i+1; endo;
+
+
+proc(1) = datacheck(x,tq,tcode,thr,acode);
+
+/* Check Data for Outliers and Adjust for Seaonality if Necessary */
+
+local tmp, y, tflag, xa, ya, ii, san; 
+
+tflag=2;  @ Adjustment Method @
+
+@ Carry Out Transformation @
+  y=transx(x,tcode);
+@ Check For Outliers @
+ if acode .== 0;
+  ya=y;
+  "   Outlier Check is Skipped";
+ else;
+  ya=adjout(y,thr,tflag);
+  ii=abs(ya-y) .gt .00001;
+  tmp=selif(tq~y~ya,ii);
+  if ismiss(tmp) .== 0;
+   "   Outliers Adjusted -- Date, Original, Adjusted";
+   format /ro 16,6;
+    tmp;
+  else;
+   "   No Outliers";
+  endif;
+ endif;
+
+@ Check For Seaonality and Adjust as necessary @
+  {ya,san}=seasadq(ya,.01);
+  if san .== 0;
+   "   No Significant Seasonality";
+  elseif san .== 1;
+   "   Seasonally Adjusted Using X11";
+  else;
+   "   Seasonal Adjustment failed -- processing stops";
+   stop;
+  endif;
+
+@ Transform back into level of series and return @      
+  xa=transxin(ya,x,tcode);
+retp(xa);
+endp;  

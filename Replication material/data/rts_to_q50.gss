@@ -1,0 +1,34 @@
+/* rts_to_q50.gss, mww 5/27/03
+   construct versions of data for use in other programs
+   Chane missing value code
+   *
+*/
+new;
+
+tq=seqa(1950,.25,4*53);
+cname=
+"cn" $|
+"fr" $|
+"bd" $|
+"it" $|
+"jp" $|
+"uk" $|
+"us" ;
+
+i=1; do while i <= rows(cname);
+  ystr=cname[i] $+ "gdp.r50";
+  ystr;
+  load x[]=^ystr;
+  y=miss(x,"NA");
+  ystr=cname[i] $+ "gdp.q50";
+  y=missrv(y,1.0e+32);
+  format /ro 16,7;
+  output file = ^ystr reset; output on;
+  screen off;
+   y;
+  screen on;
+  output off;
+  "";
+  
+i=i+1; endo;
+
