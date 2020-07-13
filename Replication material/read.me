@@ -1,0 +1,54 @@
+This file contains programs and data for
+
+"Understanding Changes in International Business Cycle Dynamics"
+
+by James H. Stock and Mark W. Watson
+
+Revised August 2004
+
+
+Data Construction:
+
+ All data and programs are in the ..\data\ directory
+ 1. Splices of Table described in Table A.1 are constructed in gdp_data_1.rts
+ 2. Convert RATS ASCII file to *.q50 files (changing missing value code): rts_to_q50.gss
+ 3. Interpolate annual population data to quarterly ... all countries except Germany: pop_a_to_q.gss
+ 4. Construct percapita GDP ... checking for outliers in series: pop_adj.gss
+ 5. Trade weights are constructed in tradeweight.xls
+
+
+Empirical Results: 
+ All GAUSS programs have a GSS extension and are in the GSS directory
+ All RATS programs have a RTS extension and are in the RTS directory
+ Table 1: (rts directory) tab01_01.rts
+ Detrending Series: tst_gdp1.gss 
+ Construct bandpass series: bp_to_q50.gss
+ Table 2: table2.gss
+ Table 3: ar_split.gss
+ Table 4: cor_split_test.gss 
+ Table 5: Point estimates in cor_split.gss; tests reported in panel A are computed
+          in cor_split_test.gss
+ Table 6: fac_tests.gss (this also compute the tests reported at the end of section 6.1)
+          Note the hvec matrix must be chosen to compute Log-Likelihood value for any model.
+ Table 7: fac_decomp.gss
+ Table 8: fac_iorp.gss
+ Table 9: fac_counterfactual.gss
+ Table 10: fac_counterfactual.gss
+ Table 11: factors estimated in fac_est.gss.  Factors are rewritten in ascii files in fac_rewrite.gss
+           regressions and canonical correlations are computed in fac_shocks.rts (in the ..\rts\ directory)
+ Table 12: fac_counterfactual_wght.gss
+ Table 13: fac_counterfactual_wght.gss
+ Table 14: fac_counterfactual.gss
+ Table 15: fac_counterfactual_robustness.gss ... (change i_scale at top for the different models)
+
+ 
+ 
+ 
+ Figure 1: fig1_01.gss
+ Figure 2: fig2_01.gss
+ Figure 3: fig3_01.gss
+ Figures 4:  Calculations are performed in ng_filt.gss and figure plotted in fig4.gss
+ Figure 5: Calculations performed in ar_exp.gss and figure plotted in fig5.gss
+ Figure 6: Calculations performed in rfvar_exp.gss and figure plotted in fig6.gss 
+ Figure 7: Calculations performed in fac_decomp_exp.gss and figure plotted in fig7.gss
+ Figure 8: fac_iorp.gss
