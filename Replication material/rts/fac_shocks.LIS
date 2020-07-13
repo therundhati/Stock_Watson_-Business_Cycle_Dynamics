@@ -1,0 +1,3549 @@
+*
+* fac_shocs.rts, mww, 6/4/02
+* Read in Shocks computed in MA02 ...
+* Project factors onto Shocks
+* Also compute canonical correlations
+*
+*
+sou cancor.src
+PROCEDURE CANCOR K1 K2 CORMAT A
+(01.0020) *
+(01.0020) * This procedure was downloaded from http://ideas.repec.org/c/boc/bocode/r951101.html
+(01.0020) * Author Info: Eric Blankmeyer (thomas@sat.net) (Southwest Texas State University)
+(01.0020) *
+(01.0020) * It was modified to return the values of the canonical correlations in the
+(01.0020) * vector A
+(01.0020) *
+(01.0020) * CANCOR.SRC COMPUTES CANONICAL CORRELATIONS BETWEEN TWO DATA
+(01.0020) * SETS. THE FIRST SET HAS K1 VARIABLES AND THE SECOND HAS K2
+(01.0020) * VARIABLES (1 < K1 <= K2). CORMAT IS THE CORRELATION MATRIX
+(01.0020) * FOR ALL THE VARIABLES. CORMAT HAS K1+K2 ROWS AND COLUMNS AND
+(01.0020) * MUST BE COMPUTED IN THE PROGRAM THAT INVOKES CANCOR.SRC.
+(01.0020) * (TYPICALLY CORMAT WOULD BE COMPUTED USING THE CMOMENT
+(01.0020) * COMMAND WITH THE OPTION CORR. IN THAT CASE, CORMAT = %CMOM.)
+(01.0020) *
+(01.0020) * CANCOR.SRC THEN CALCULATES THE LINEAR COMBINATION OF EACH SET
+(01.0020) * WHICH MAXIMIZES THE SQUARED CORRELATION BETWEEN THE SETS.
+(01.0020) * THIS PROCESS IS REPEATED K1 TIMES SINCE THERE CAN BE AS MANY
+(01.0020) * AS K1 "CANONICAL VARIATES" LINKING THE TWO DATA SETS.
+(01.0020) *
+(01.0020) * HYPOTHESIS TESTS AND APPLICATIONS USING CANONICAL CORRELATION
+(01.0020) * MAY BE FOUND IN STATISTICS TEXTBOOKS SUCH AS
+(01.0020) *
+(01.0020) * Hair, Joseph F. Jr. et al. (1998). Multivariate Data Analysis,
+(01.0020) * Fifth edition. Prentice Hall. Chapter 8.
+(01.0020) *
+(01.0020) * Rencher, Alvin C. (1995). Methods of Multivariate Analysis,
+(01.0020) * Wiley. Chapter 11.
+(01.0020) *
+(01.0020) TYPE INTEGER K1 K2
+(01.0020) TYPE SYMM CORMAT
+(01.0020) type vect *A
+(01.0020) LOCAL SYMM SPP SQQ E
+(01.0056) LOCAL RECT SPQ D
+(01.0080) LOCAL INTEGER I J
+(01.0082) LOCAL REAL Z
+(01.0084) LOCAL VECT PC QC
+(01.0108) DIM SPP(K1,K1) SQQ(K2,K2) SPQ(K1,K2)
+(01.0169) DIM D(K1,K1) E(K1,K1) PC(K1) QC(K2)
+(01.0241) DO I = 1,K1
+(02.0273) DO J = 1,K1
+(03.0305) COMPUTE SPP(I,J) = CORMAT(I,J)
+(03.0342) END DO J
+(02.0344) DO J = 1,K2
+(03.0376) COMPUTE SPQ(I,J) = CORMAT(I,K1+J)
+(03.0418) END DO J
+(02.0420) END DO I
+(01.0422) DO I = 1,K2
+(02.0454) DO J = 1,K2
+(03.0486) COMPUTE SQQ(I,J) = CORMAT(K1+I,K1+J)
+(03.0533) END DO J
+(02.0535) END DO I
+(01.0537) EIGEN SPP G H
+(01.0568) DO J = 1,K1
+(02.0600) COMPUTE Z = 1.0/SQRT(G(J))
+(02.0629) DO I = 1,K1
+(03.0661) COMPUTE H(I,J) = H(I,J)*Z
+(03.0707) END DO I
+(02.0709) END DO J
+(01.0711) COMPUTE E = TR(H)*SPQ*INV(SQQ)*TR(SPQ)*H
+(01.0754) EIGEN E A B
+(01.0786) COMPUTE D = H*B
+(01.0811) DO J = 1,K1
+(02.0843) COMPUTE Z = 1.0/SQRT(A(J))
+(02.0872) DO I = 1,K1
+(03.0904) COMPUTE PC(I) = D(I,J)
+(03.0937) END DO I
+(02.0939) COMPUTE QC = INV(SQQ)*TR(SPQ)*PC
+(02.0971) COMPUTE QC = Z*QC
+(02.0996) DISPLAY '   '
+(02.1008) DISPLAY '         CANONICAL CORRELATION' J
+(02.1038) DISPLAY 'SQUARED CORRELATION COEFFICIENT = ' A(J)
+(02.1074) DISPLAY '  '
+(02.1086) DISPLAY 'COEFFICIENTS FOR THE FIRST DATA SET:'
+(02.1107) WRITE PC
+(02.1120) DISPLAY 'COEFFICIENTS FOR THE SECOND DATA SET:'
+(02.1141) WRITE QC
+(02.1154) END DO J
+(01.1156) END CANCOR
+compute missc=1.0e+32
+cal 1950 1 4
+all 0 2002:4
+
+compute missc=1.0e+32
+* Read in Factors
+open data \g7\data\fachat_19602003
+data(for=free,org=obs,missing=missc) / f1t f2t
+close data
+open data \g7\data\fachat_19601984
+data(for=free,org=obs,missing=missc) / f11 f21
+close data
+open data \g7\data\fachat_19842003
+data(for=free,org=obs,missing=missc) / f12 f22
+close data
+* Read in Shocks
+open data \g7\data\shocks.rat
+data(for=rats) / cee gali
+data(for=rats) / cpall cpfood cpmat senmatpr
+data(for=rats) / poiln poilh
+close data
+
+declare rectangular res1(8,3)
+declare rectangular res2(8,3)
+declare rectangular resc(8,3)
+
+compute nl = 4
+compute k1 = 2
+compute k2 = 2*nl+1
+
+linreg(print) f1t /
+# constant cee{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F1T
+Quarterly Data From 1961:02 To 2000:03
+Usable Observations    158     Degrees of Freedom   148
+Centered R**2     0.146009      R Bar **2   0.094077
+Uncentered R**2   0.146892      T x R**2      23.209
+Mean of Dependent Variable      0.0244478379
+Std Error of Dependent Variable 0.7624083736
+Standard Error of Estimate      0.7256602103
+Sum of Squared Residuals        77.934245631
+Regression F(9,148)                   2.8115
+Significance Level of F           0.00446009
+Durbin-Watson Statistic             1.962340
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.026717425  0.057788119      0.46233  0.64452062
+2.  CEE{-4}                  -0.091256190  0.083978225     -1.08666  0.27895158
+3.  CEE{-3}                   0.031477223  0.084226614      0.37372  0.70914699
+4.  CEE{-2}                   0.054858591  0.083427551      0.65756  0.51184252
+5.  CEE{-1}                   0.030286064  0.083799830      0.36141  0.71830868
+6.  CEE                       0.074698991  0.083446610      0.89517  0.37214921
+7.  CEE{1}                    0.064015511  0.083484780      0.76679  0.44442626
+8.  CEE{2}                   -0.376730502  0.083540215     -4.50957  0.00001313
+9.  CEE{3}                    0.045533674  0.085588819      0.53200  0.59552028
+10. CEE{4}                   -0.063000084  0.085526958     -0.73661  0.46252506
+
+compute res1(1,1)=%rbarsq
+
+linreg(print) f1t /
+# constant gali{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F1T
+Quarterly Data From 1961:02 To 2000:03
+Usable Observations    158     Degrees of Freedom   148
+Centered R**2     0.090434      R Bar **2   0.035122
+Uncentered R**2   0.091374      T x R**2      14.437
+Mean of Dependent Variable      0.0244478379
+Std Error of Dependent Variable 0.7624083736
+Standard Error of Estimate      0.7488998900
+Sum of Squared Residuals        83.005954686
+Regression F(9,148)                   1.6350
+Significance Level of F           0.11022332
+Durbin-Watson Statistic             1.985930
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                   0.03003763   0.05970560      0.50310  0.61564486
+2.  GALI{-4}                   7.90269016   8.37280901      0.94385  0.34678368
+3.  GALI{-3}                   9.11678079   8.27297960      1.10199  0.27225277
+4.  GALI{-2}                  -3.48910713   8.27226165     -0.42178  0.67379474
+5.  GALI{-1}                  -0.51240411   8.27051630     -0.06196  0.95068185
+6.  GALI                      20.21862397   8.22279807      2.45885  0.01509115
+7.  GALI{1}                  -15.47897593   8.24114920     -1.87825  0.06231346
+8.  GALI{2}                   11.95128213   8.26976440      1.44518  0.15052190
+9.  GALI{3}                    7.55942673   8.27596770      0.91342  0.36250779
+10. GALI{4}                    0.12201452   8.33447269      0.01464  0.98833931
+
+compute res1(2,1)=%rbarsq
+
+linreg(print) f1t /
+# constant cpall{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F1T
+Quarterly Data From 1961:02 To 2000:04
+Usable Observations    159     Degrees of Freedom   149
+Centered R**2     0.098448      R Bar **2   0.043992
+Uncentered R**2   0.099268      T x R**2      15.784
+Mean of Dependent Variable      0.0228616219
+Std Error of Dependent Variable 0.7602550118
+Standard Error of Estimate      0.7433443175
+Sum of Squared Residuals        82.331555379
+Regression F(9,149)                   1.8078
+Significance Level of F           0.07118932
+Durbin-Watson Statistic             2.157332
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.013865199  0.060926402      0.22757  0.82029024
+2.  CPALL{-4}                 0.454967433  1.573823790      0.28908  0.77291885
+3.  CPALL{-3}                 0.564718667  1.646390831      0.34300  0.73207889
+4.  CPALL{-2}                -0.118069754  1.663328933     -0.07098  0.94350567
+5.  CPALL{-1}                 3.773889485  1.698570573      2.22180  0.02780408
+6.  CPALL                     0.861290639  1.676796808      0.51365  0.60825592
+7.  CPALL{1}                  1.905878352  1.691038229      1.12705  0.26153468
+8.  CPALL{2}                 -3.919568862  1.667255899     -2.35091  0.02003756
+9.  CPALL{3}                 -0.965522893  1.651720013     -0.58456  0.55973035
+10. CPALL{4}                 -0.671529563  1.618505208     -0.41491  0.67880659
+
+compute res1(3,1)=%rbarsq
+
+linreg(print) f1t /
+# constant cpfood{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F1T
+Quarterly Data From 1961:02 To 2000:04
+Usable Observations    159     Degrees of Freedom   149
+Centered R**2     0.034987      R Bar **2  -0.023302
+Uncentered R**2   0.035864      T x R**2       5.702
+Mean of Dependent Variable      0.0228616219
+Std Error of Dependent Variable 0.7602550118
+Standard Error of Estimate      0.7690618683
+Sum of Squared Residuals        88.126967426
+Regression F(9,149)                   0.6002
+Significance Level of F           0.79533230
+Durbin-Watson Statistic             2.089136
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.018102642  0.062246873      0.29082  0.77159332
+2.  CPFOOD{-4}                0.522132204  1.119305082      0.46648  0.64155405
+3.  CPFOOD{-3}                0.717212554  1.145761886      0.62597  0.53229234
+4.  CPFOOD{-2}                0.892930379  1.133972280      0.78744  0.43227759
+5.  CPFOOD{-1}                1.177996918  1.158758243      1.01660  0.31099030
+6.  CPFOOD                   -0.601727722  1.178538090     -0.51057  0.61040688
+7.  CPFOOD{1}                -0.048229545  1.160415976     -0.04156  0.96690328
+8.  CPFOOD{2}                -1.983142625  1.151135362     -1.72277  0.08700468
+9.  CPFOOD{3}                 0.287725856  1.170519556      0.24581  0.80616730
+10. CPFOOD{4}                -0.301041936  1.174588374     -0.25630  0.79807605
+
+compute res1(4,1)=%rbarsq
+
+linreg(print) f1t /
+# constant cpmat{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F1T
+Quarterly Data From 1961:02 To 2000:04
+Usable Observations    159     Degrees of Freedom   149
+Centered R**2     0.137365      R Bar **2   0.085259
+Uncentered R**2   0.138149      T x R**2      21.966
+Mean of Dependent Variable      0.0228616219
+Std Error of Dependent Variable 0.7602550118
+Standard Error of Estimate      0.7271236199
+Sum of Squared Residuals        78.777605026
+Regression F(9,149)                   2.6363
+Significance Level of F           0.00735739
+Durbin-Watson Statistic             2.164669
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.006254950  0.059652418      0.10486  0.91663062
+2.  CPMAT{-4}                 1.078370102  1.520624629      0.70916  0.47933176
+3.  CPMAT{-3}                 1.545374227  1.674211951      0.92305  0.35747568
+4.  CPMAT{-2}                -2.332031984  1.670234727     -1.39623  0.16472188
+5.  CPMAT{-1}                 4.334559463  1.683872782      2.57416  0.01102335
+6.  CPMAT                    -0.009558055  1.683906175     -0.00568  0.99547873
+7.  CPMAT{1}                  3.691569115  1.679558004      2.19794  0.02949655
+8.  CPMAT{2}                 -3.687059057  1.660806440     -2.22004  0.02792608
+9.  CPMAT{3}                 -0.566513748  1.662855612     -0.34069  0.73381890
+10. CPMAT{4}                 -0.935075991  1.524497072     -0.61337  0.54056898
+
+compute res1(5,1)=%rbarsq
+
+linreg(print) f1t /
+# constant senmatpr{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F1T
+Quarterly Data From 1961:02 To 2000:03
+Usable Observations    158     Degrees of Freedom   148
+Centered R**2     0.158030      R Bar **2   0.106829
+Uncentered R**2   0.158900      T x R**2      25.106
+Mean of Dependent Variable      0.0244478379
+Std Error of Dependent Variable 0.7624083736
+Standard Error of Estimate      0.7205349681
+Sum of Squared Residuals        76.837254759
+Regression F(9,148)                   3.0865
+Significance Level of F           0.00200690
+Durbin-Watson Statistic             2.165087
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                 -0.003689868  0.061840701     -0.05967  0.95250111
+2.  SENMATPR{-4}              1.039271873  2.226861561      0.46670  0.64140222
+3.  SENMATPR{-3}              2.082513402  2.628650707      0.79224  0.42949073
+4.  SENMATPR{-2}             -5.038440681  2.619322073     -1.92357  0.05632865
+5.  SENMATPR{-1}              8.279921215  2.656894341      3.11639  0.00219968
+6.  SENMATPR                 -0.282943111  2.847617712     -0.09936  0.92098584
+7.  SENMATPR{1}               4.597688430  2.656356580      1.73083  0.08556715
+8.  SENMATPR{2}              -7.562014016  2.616847211     -2.88974  0.00443568
+9.  SENMATPR{3}               2.722295967  2.618514330      1.03963  0.30020552
+10. SENMATPR{4}              -2.041273716  2.235153699     -0.91326  0.36259179
+
+compute res1(6,1)=%rbarsq
+
+linreg(print) f1t /
+# constant poiln{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F1T
+Quarterly Data From 1961:02 To 2000:03
+Usable Observations    158     Degrees of Freedom   148
+Centered R**2     0.030545      R Bar **2  -0.028409
+Uncentered R**2   0.031547      T x R**2       4.984
+Mean of Dependent Variable      0.0244478379
+Std Error of Dependent Variable 0.7624083736
+Standard Error of Estimate      0.7731620258
+Sum of Squared Residuals        88.471368695
+Regression F(9,148)                   0.5181
+Significance Level of F           0.85974012
+Durbin-Watson Statistic             2.084651
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.042035243  0.063799629      0.65886  0.51100722
+2.  POILN{-4}                 0.100741670  0.615341306      0.16372  0.87017750
+3.  POILN{-3}                -0.316252074  0.646243773     -0.48937  0.62530454
+4.  POILN{-2}                -0.014719625  0.657149986     -0.02240  0.98215970
+5.  POILN{-1}                 0.156306608  0.660676401      0.23659  0.81330532
+6.  POILN                    -0.452790849  0.649379750     -0.69727  0.48672978
+7.  POILN{1}                  0.100155614  0.662888781      0.15109  0.88011076
+8.  POILN{2}                 -0.046411538  0.665791105     -0.06971  0.94451949
+9.  POILN{3}                 -0.888538267  0.664909431     -1.33633  0.18349242
+10. POILN{4}                 -0.327988520  0.633164601     -0.51801  0.60522157
+
+compute res1(7,1)=%rbarsq
+
+linreg(print) f1t /
+# constant poilh{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F1T
+Quarterly Data From 1961:02 To 2000:03
+Usable Observations    158     Degrees of Freedom   148
+Centered R**2     0.085060      R Bar **2   0.029422
+Uncentered R**2   0.086006      T x R**2      13.589
+Mean of Dependent Variable      0.0244478379
+Std Error of Dependent Variable 0.7624083736
+Standard Error of Estimate      0.7511088176
+Sum of Squared Residuals        83.496339478
+Regression F(9,148)                   1.5288
+Significance Level of F           0.14272097
+Durbin-Watson Statistic             2.128953
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.143622732  0.080248710      1.78972  0.07554366
+2.  POILH{-4}                 4.266022369  4.137348132      1.03110  0.30417568
+3.  POILH{-3}                -5.034549660  4.296272078     -1.17184  0.24314370
+4.  POILH{-2}                -3.803596969  4.353435809     -0.87370  0.38369709
+5.  POILH{-1}                 4.948118731  4.338919658      1.14040  0.25596038
+6.  POILH                    -6.149294188  4.368015246     -1.40780  0.16128709
+7.  POILH{1}                  1.084960900  4.359881265      0.24885  0.80382102
+8.  POILH{2}                 -3.350921123  4.412884775     -0.75935  0.44885137
+9.  POILH{3}                 -5.300925789  4.458049562     -1.18907  0.23631703
+10. POILH{4}                 -3.995985610  4.280937321     -0.93344  0.35211471
+
+compute res1(8,1)=%rbarsq
+
+******
+linreg(print) f11 /
+# constant cee{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F11
+Quarterly Data From 1961:02 To 1983:04
+Usable Observations     91     Degrees of Freedom    81
+Centered R**2     0.188951      R Bar **2   0.098835
+Uncentered R**2   0.189700      T x R**2      17.263
+Mean of Dependent Variable      0.0231378491
+Std Error of Dependent Variable 0.7652582126
+Standard Error of Estimate      0.7264575062
+Sum of Squared Residuals        42.746981172
+Regression F(9,81)                    2.0967
+Significance Level of F           0.03912597
+Durbin-Watson Statistic             2.061184
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.026390163  0.076227040      0.34620  0.73008652
+2.  CEE{-4}                  -0.077692858  0.092989116     -0.83550  0.40589128
+3.  CEE{-3}                   0.035786671  0.093121495      0.38430  0.70176253
+4.  CEE{-2}                   0.084573614  0.090994035      0.92944  0.35542208
+5.  CEE{-1}                  -0.000829600  0.090928725     -0.00912  0.99274293
+6.  CEE                       0.070976164  0.091132293      0.77883  0.43835183
+7.  CEE{1}                    0.065038149  0.092044337      0.70660  0.48184534
+8.  CEE{2}                   -0.348739439  0.092081848     -3.78728  0.00029126
+9.  CEE{3}                    0.036321372  0.094206309      0.38555  0.70083964
+10. CEE{4}                   -0.084411358  0.094340953     -0.89475  0.37357302
+
+compute res1(1,2)=%rbarsq
+
+linreg(print) f11 /
+# constant gali{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F11
+Quarterly Data From 1961:02 To 1983:04
+Usable Observations     91     Degrees of Freedom    81
+Centered R**2     0.105529      R Bar **2   0.006144
+Uncentered R**2   0.106355      T x R**2       9.678
+Mean of Dependent Variable      0.0231378491
+Std Error of Dependent Variable 0.7652582126
+Standard Error of Estimate      0.7629038076
+Sum of Squared Residuals        47.143799789
+Regression F(9,81)                    1.0618
+Significance Level of F           0.39980594
+Durbin-Watson Statistic             2.039965
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                   0.02004862   0.08019680      0.24999  0.80322594
+2.  GALI{-4}                  -1.59233359  10.39091643     -0.15324  0.87858789
+3.  GALI{-3}                  11.74912456  10.05901759      1.16802  0.24622557
+4.  GALI{-2}                   1.08520056  10.05170759      0.10796  0.91429297
+5.  GALI{-1}                  -7.77474476  10.12496214     -0.76788  0.44479193
+6.  GALI                      16.92221368  10.02376495      1.68821  0.09521789
+7.  GALI{1}                  -13.53771043   9.99704463     -1.35417  0.17944767
+8.  GALI{2}                   12.63573233   9.94606610      1.27043  0.20757024
+9.  GALI{3}                    8.62674350   9.93284317      0.86851  0.38768292
+10. GALI{4}                   -7.26762527  10.06013193     -0.72242  0.47211784
+
+compute res1(2,2)=%rbarsq
+
+linreg(print) f11 /
+# constant cpall{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F11
+Quarterly Data From 1961:02 To 1983:04
+Usable Observations     91     Degrees of Freedom    81
+Centered R**2     0.157831      R Bar **2   0.064256
+Uncentered R**2   0.158608      T x R**2      14.433
+Mean of Dependent Variable      0.0231378491
+Std Error of Dependent Variable 0.7652582126
+Standard Error of Estimate      0.7402636577
+Sum of Squared Residuals        44.387212921
+Regression F(9,81)                    1.6867
+Significance Level of F           0.10562406
+Durbin-Watson Statistic             2.306999
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                 -0.012228293  0.086945789     -0.14064  0.88850136
+2.  CPALL{-4}                 1.040956471  1.946714206      0.53472  0.59430497
+3.  CPALL{-3}                -0.987697577  1.990998706     -0.49608  0.62118039
+4.  CPALL{-2}                 0.764047237  2.037293701      0.37503  0.70861799
+5.  CPALL{-1}                 3.326914449  2.081047867      1.59867  0.11378713
+6.  CPALL                     1.763881686  2.008835062      0.87806  0.38250723
+7.  CPALL{1}                  2.720953737  2.084589288      1.30527  0.19549625
+8.  CPALL{2}                 -4.900307926  2.036509885     -2.40623  0.01839487
+9.  CPALL{3}                  0.526018903  2.009279240      0.26179  0.79414421
+10. CPALL{4}                 -1.729696074  1.974155866     -0.87617  0.38352864
+
+compute res1(3,2)=%rbarsq
+
+linreg(print) f11 /
+# constant cpfood{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F11
+Quarterly Data From 1961:02 To 1983:04
+Usable Observations     91     Degrees of Freedom    81
+Centered R**2     0.097399      R Bar **2  -0.002890
+Uncentered R**2   0.098233      T x R**2       8.939
+Mean of Dependent Variable      0.0231378491
+Std Error of Dependent Variable 0.7652582126
+Standard Error of Estimate      0.7663631912
+Sum of Squared Residuals        47.572315803
+Regression F(9,81)                    0.9712
+Significance Level of F           0.46998215
+Durbin-Watson Statistic             2.222047
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                 -0.003157955  0.088266377     -0.03578  0.97154776
+2.  CPFOOD{-4}                1.311236971  1.389825958      0.94345  0.34825430
+3.  CPFOOD{-3}               -0.354678208  1.378924497     -0.25721  0.79766612
+4.  CPFOOD{-2}                2.051414677  1.354196753      1.51486  0.13370127
+5.  CPFOOD{-1}                1.439066016  1.372482855      1.04851  0.29752086
+6.  CPFOOD                   -0.161300210  1.422464091     -0.11339  0.90999804
+7.  CPFOOD{1}                 0.599408070  1.375938115      0.43564  0.66425963
+8.  CPFOOD{2}                -3.072269650  1.368272146     -2.24536  0.02746987
+9.  CPFOOD{3}                 0.751719096  1.406324089      0.53453  0.59444074
+10. CPFOOD{4}                -0.678716312  1.414565562     -0.47981  0.63265880
+
+compute res1(4,2)=%rbarsq
+
+linreg(print) f11 /
+# constant cpmat{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F11
+Quarterly Data From 1961:02 To 1983:04
+Usable Observations     91     Degrees of Freedom    81
+Centered R**2     0.194551      R Bar **2   0.105057
+Uncentered R**2   0.195295      T x R**2      17.772
+Mean of Dependent Variable      0.0231378491
+Std Error of Dependent Variable 0.7652582126
+Standard Error of Estimate      0.7239453682
+Sum of Squared Residuals        42.451848583
+Regression F(9,81)                    2.1739
+Significance Level of F           0.03227245
+Durbin-Watson Statistic             2.306574
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                 -0.023693343  0.083921595     -0.28233  0.77841283
+2.  CPMAT{-4}                 1.053602643  1.899103732      0.55479  0.58056748
+3.  CPMAT{-3}                 1.980632298  2.035511522      0.97304  0.33343075
+4.  CPMAT{-2}                -2.544197128  2.040516408     -1.24684  0.21604968
+5.  CPMAT{-1}                 3.398823723  2.043745670      1.66304  0.10017004
+6.  CPMAT                     0.588880079  2.013529120      0.29246  0.77068150
+7.  CPMAT{1}                  4.500052295  2.049662746      2.19551  0.03098837
+8.  CPMAT{2}                 -3.904534714  2.033769806     -1.91985  0.05839720
+9.  CPMAT{3}                  1.770847586  2.032898961      0.87109  0.38627692
+10. CPMAT{4}                 -3.234502914  1.903182943     -1.69952  0.09305821
+
+compute res1(5,2)=%rbarsq
+
+linreg(print) f11 /
+# constant senmatpr{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F11
+Quarterly Data From 1961:02 To 1983:04
+Usable Observations     91     Degrees of Freedom    81
+Centered R**2     0.215117      R Bar **2   0.127908
+Uncentered R**2   0.215842      T x R**2      19.642
+Mean of Dependent Variable      0.0231378491
+Std Error of Dependent Variable 0.7652582126
+Standard Error of Estimate      0.7146429428
+Sum of Squared Residuals        41.367877392
+Regression F(9,81)                    2.4667
+Significance Level of F           0.01537554
+Durbin-Watson Statistic             2.322337
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                 -0.031696912  0.086862826     -0.36491  0.71613136
+2.  SENMATPR{-4}              1.418230085  2.678922656      0.52940  0.59797379
+3.  SENMATPR{-3}              1.961188370  3.121898514      0.62820  0.53163778
+4.  SENMATPR{-2}             -5.126899387  3.127881476     -1.63910  0.10507178
+5.  SENMATPR{-1}              6.681169124  3.173725820      2.10515  0.03837687
+6.  SENMATPR                  1.169737277  3.398344621      0.34421  0.73158191
+7.  SENMATPR{1}               4.659428849  3.191457825      1.45997  0.14816641
+8.  SENMATPR{2}              -7.086216172  3.124868204     -2.26768  0.02601184
+9.  SENMATPR{3}               5.327931979  3.114438819      1.71072  0.09096039
+10. SENMATPR{4}              -5.209842298  2.692725016     -1.93478  0.05650756
+
+compute res1(6,2)=%rbarsq
+
+linreg(print) f11 /
+# constant poiln{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F11
+Quarterly Data From 1961:02 To 1983:04
+Usable Observations     91     Degrees of Freedom    81
+Centered R**2     0.216846      R Bar **2   0.129829
+Uncentered R**2   0.217569      T x R**2      19.799
+Mean of Dependent Variable      0.0231378491
+Std Error of Dependent Variable 0.7652582126
+Standard Error of Estimate      0.7138555632
+Sum of Squared Residuals        41.276770977
+Regression F(9,81)                    2.4920
+Significance Level of F           0.01441218
+Durbin-Watson Statistic             2.143975
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.101537297  0.092054810      1.10301  0.27328952
+2.  POILN{-4}                 2.918685023  1.568631965      1.86066  0.06642156
+3.  POILN{-3}                -3.368624123  1.616160904     -2.08434  0.04028051
+4.  POILN{-2}                -0.482121436  1.625812302     -0.29654  0.76757532
+5.  POILN{-1}                 3.841369274  1.617243985      2.37526  0.01989986
+6.  POILN                    -4.188990153  1.613852605     -2.59565  0.01120666
+7.  POILN{1}                  0.978299086  1.617205649      0.60493  0.54691533
+8.  POILN{2}                  0.344332170  1.626128614      0.21175  0.83283425
+9.  POILN{3}                 -3.047093831  1.617043401     -1.88436  0.06310340
+10. POILN{4}                 -0.586667871  1.583283410     -0.37054  0.71194833
+
+compute res1(7,2)=%rbarsq
+
+linreg(print) f11 /
+# constant poilh{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F11
+Quarterly Data From 1961:02 To 1983:04
+Usable Observations     91     Degrees of Freedom    81
+Centered R**2     0.201238      R Bar **2   0.112486
+Uncentered R**2   0.201975      T x R**2      18.380
+Mean of Dependent Variable      0.0231378491
+Std Error of Dependent Variable 0.7652582126
+Standard Error of Estimate      0.7209339727
+Sum of Squared Residuals        42.099409229
+Regression F(9,81)                    2.2674
+Significance Level of F           0.02550741
+Durbin-Watson Statistic             2.218658
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                   0.12828449   0.09770665      1.31296  0.19290556
+2.  POILH{-4}                 12.43013545   5.56578601      2.23331  0.02828667
+3.  POILH{-3}                -11.16369886   5.76617577     -1.93607  0.05634779
+4.  POILH{-2}                 -5.41863364   5.91164237     -0.91660  0.36207132
+5.  POILH{-1}                 12.20139249   5.89049862      2.07137  0.04150748
+6.  POILH                    -11.86857145   5.86498407     -2.02363  0.04630538
+7.  POILH{1}                  -0.25126686   5.88998962     -0.04266  0.96607756
+8.  POILH{2}                  -0.43146806   5.91026065     -0.07300  0.94198353
+9.  POILH{3}                  -7.07909547   5.76507687     -1.22793  0.22303057
+10. POILH{4}                  -3.91960802   5.56605259     -0.70420  0.48332860
+
+compute res1(8,2)=%rbarsq
+******
+linreg(print) f12 /
+# constant cee{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F12
+Quarterly Data From 1984:01 To 2000:03
+Usable Observations     67     Degrees of Freedom    57
+Centered R**2     0.145831      R Bar **2   0.010962
+Uncentered R**2   0.147235      T x R**2       9.865
+Mean of Dependent Variable      -0.039645797
+Std Error of Dependent Variable  0.984303413
+Standard Error of Estimate       0.978893622
+Sum of Squared Residuals        54.619265178
+Regression F(9,57)                    1.0813
+Significance Level of F           0.39065519
+Durbin-Watson Statistic             1.943427
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                 -0.083162988  0.122546463     -0.67862  0.50012213
+2.  CEE{-4}                   0.328540136  0.299691352      1.09626  0.27757444
+3.  CEE{-3}                   0.048220872  0.311985236      0.15456  0.87771310
+4.  CEE{-2}                  -0.458078208  0.320473883     -1.42938  0.15835376
+5.  CEE{-1}                   0.438479567  0.326984663      1.34098  0.18524675
+6.  CEE                       0.624037682  0.324927329      1.92055  0.05979670
+7.  CEE{1}                    0.000150038  0.292115726  5.13627e-04  0.99959198
+8.  CEE{2}                   -0.238691599  0.287992599     -0.82881  0.41066829
+9.  CEE{3}                    0.339764032  0.292197418      1.16279  0.24976013
+10. CEE{4}                    0.091025453  0.291833046      0.31191  0.75624753
+
+compute res1(1,3)=%rbarsq
+
+linreg(print) f12 /
+# constant gali{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F12
+Quarterly Data From 1984:01 To 2000:03
+Usable Observations     67     Degrees of Freedom    57
+Centered R**2     0.175761      R Bar **2   0.045618
+Uncentered R**2   0.177116      T x R**2      11.867
+Mean of Dependent Variable      -0.039645797
+Std Error of Dependent Variable  0.984303413
+Standard Error of Estimate       0.961590464
+Sum of Squared Residuals        52.705404536
+Regression F(9,57)                    1.3505
+Significance Level of F           0.23236772
+Durbin-Watson Statistic             1.923811
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  -0.01293662   0.12237127     -0.10572  0.91617875
+2.  GALI{-4}                  45.64586273  20.25072878      2.25404  0.02805539
+3.  GALI{-3}                   9.73983195  20.50144150      0.47508  0.63654512
+4.  GALI{-2}                 -28.76548270  20.23984554     -1.42123  0.16069795
+5.  GALI{-1}                  22.54028553  20.47036192      1.10112  0.27547349
+6.  GALI                     -10.09184078  20.47848316     -0.49280  0.62404548
+7.  GALI{1}                  -18.15215936  20.88338690     -0.86922  0.38837485
+8.  GALI{2}                   -3.11743628  21.22761110     -0.14686  0.88376261
+9.  GALI{3}                    5.88146445  21.28668364      0.27630  0.78331869
+10. GALI{4}                   17.00880282  21.65570574      0.78542  0.43546059
+
+compute res1(2,3)=%rbarsq
+
+linreg(print) f12 /
+# constant cpall{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F12
+Quarterly Data From 1984:01 To 2000:04
+Usable Observations     68     Degrees of Freedom    58
+Centered R**2     0.102052      R Bar **2  -0.037284
+Uncentered R**2   0.103358      T x R**2       7.028
+Mean of Dependent Variable      -0.037017331
+Std Error of Dependent Variable  0.977170668
+Standard Error of Estimate       0.995220477
+Sum of Squared Residuals        57.446900286
+Regression F(9,58)                    0.7324
+Significance Level of F           0.67753828
+Durbin-Watson Statistic             1.820240
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                 -0.026440114  0.122104758     -0.21654  0.82932954
+2.  CPALL{-4}                 2.928698882  3.970874910      0.73754  0.46376449
+3.  CPALL{-3}                -5.546784242  4.239690929     -1.30830  0.19593297
+4.  CPALL{-2}                 3.361222122  4.157754783      0.80842  0.42215107
+5.  CPALL{-1}                 5.844154165  4.226636513      1.38270  0.17205883
+6.  CPALL                    -4.575252594  4.184679736     -1.09333  0.27876745
+7.  CPALL{1}                 -1.417123013  4.264798993     -0.33228  0.74087300
+8.  CPALL{2}                 -0.469589786  4.192519898     -0.11201  0.91120494
+9.  CPALL{3}                  1.502862136  4.187734042      0.35887  0.72099367
+10. CPALL{4}                 -1.799890380  4.060881927     -0.44323  0.65925082
+
+compute res1(3,3)=%rbarsq
+
+linreg(print) f12 /
+# constant cpfood{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F12
+Quarterly Data From 1984:01 To 2000:04
+Usable Observations     68     Degrees of Freedom    58
+Centered R**2     0.058838      R Bar **2  -0.087204
+Uncentered R**2   0.060207      T x R**2       4.094
+Mean of Dependent Variable      -0.037017331
+Std Error of Dependent Variable  0.977170668
+Standard Error of Estimate       1.018886816
+Sum of Squared Residuals        60.211559911
+Regression F(9,58)                    0.4029
+Significance Level of F           0.92855426
+Durbin-Watson Statistic             1.902702
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                 -0.047839012  0.127929622     -0.37395  0.70980665
+2.  CPFOOD{-4}                0.464803595  2.811526462      0.16532  0.86926643
+3.  CPFOOD{-3}               -1.454533648  2.943581652     -0.49414  0.62307551
+4.  CPFOOD{-2}                0.456523238  2.968767335      0.15378  0.87832067
+5.  CPFOOD{-1}                2.448724305  3.095970706      0.79094  0.43220198
+6.  CPFOOD                   -3.366365421  3.098164341     -1.08657  0.28172308
+7.  CPFOOD{1}                -2.237981710  3.126814709     -0.71574  0.47702454
+8.  CPFOOD{2}                -1.376348404  3.067435710     -0.44870  0.65532238
+9.  CPFOOD{3}                 2.899016272  3.071486757      0.94385  0.34916263
+10. CPFOOD{4}                -0.056481959  3.063468425     -0.01844  0.98535331
+
+compute res1(4,3)=%rbarsq
+
+linreg(print) f12 /
+# constant cpmat{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F12
+Quarterly Data From 1984:01 To 2000:04
+Usable Observations     68     Degrees of Freedom    58
+Centered R**2     0.140388      R Bar **2   0.007000
+Uncentered R**2   0.141639      T x R**2       9.631
+Mean of Dependent Variable      -0.037017331
+Std Error of Dependent Variable  0.977170668
+Standard Error of Estimate       0.973744344
+Sum of Squared Residuals        54.994326771
+Regression F(9,58)                    1.0525
+Significance Level of F           0.41105203
+Durbin-Watson Statistic             1.771665
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                 -0.024059070  0.118666442     -0.20275  0.84004362
+2.  CPMAT{-4}                 4.347899435  3.604248555      1.20633  0.23258939
+3.  CPMAT{-3}                -7.436922494  4.070937097     -1.82683  0.07287197
+4.  CPMAT{-2}                 5.116636869  4.039263358      1.26673  0.21031690
+5.  CPMAT{-1}                 4.795854599  4.075990199      1.17661  0.24415729
+6.  CPMAT                    -5.514384097  4.140457638     -1.33183  0.18812647
+7.  CPMAT{1}                  1.663957746  4.035258311      0.41235  0.68159967
+8.  CPMAT{2}                 -0.531768894  3.996766868     -0.13305  0.89461457
+9.  CPMAT{3}                  0.332839578  3.987212139      0.08348  0.93375990
+10. CPMAT{4}                 -1.749721820  3.557498396     -0.49184  0.62468848
+
+compute res1(5,3)=%rbarsq
+
+linreg(print) f12 /
+# constant senmatpr{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F12
+Quarterly Data From 1984:01 To 2000:03
+Usable Observations     67     Degrees of Freedom    57
+Centered R**2     0.122442      R Bar **2  -0.016120
+Uncentered R**2   0.123884      T x R**2       8.300
+Mean of Dependent Variable      -0.039645797
+Std Error of Dependent Variable  0.984303413
+Standard Error of Estimate       0.992205310
+Sum of Squared Residuals        56.114868525
+Regression F(9,57)                    0.8837
+Significance Level of F           0.54525802
+Durbin-Watson Statistic             1.790192
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                 -0.040330836  0.122572268     -0.32904  0.74333351
+2.  SENMATPR{-4}              3.803644313  5.646029112      0.67368  0.50323445
+3.  SENMATPR{-3}             -4.669255903  6.656835269     -0.70142  0.48589322
+4.  SENMATPR{-2}              3.041756123  6.586767709      0.46180  0.64598388
+5.  SENMATPR{-1}              9.836113852  6.642152816      1.48086  0.14415014
+6.  SENMATPR                 -9.252402975  7.158075537     -1.29258  0.20137078
+7.  SENMATPR{1}               7.696646979  6.578830880      1.16991  0.24690537
+8.  SENMATPR{2}              -8.854062570  6.557763920     -1.35016  0.18230013
+9.  SENMATPR{3}               4.576893306  6.619964031      0.69138  0.49213484
+10. SENMATPR{4}              -0.348684096  5.601706884     -0.06225  0.95058466
+
+compute res1(6,3)=%rbarsq
+
+linreg(print) f12 /
+# constant poiln{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F12
+Quarterly Data From 1984:01 To 2000:03
+Usable Observations     67     Degrees of Freedom    57
+Centered R**2     0.075675      R Bar **2  -0.070271
+Uncentered R**2   0.077194      T x R**2       5.172
+Mean of Dependent Variable      -0.039645797
+Std Error of Dependent Variable  0.984303413
+Standard Error of Estimate       1.018300522
+Sum of Squared Residuals        59.105349273
+Regression F(9,57)                    0.5185
+Significance Level of F           0.85513517
+Durbin-Watson Statistic             1.891611
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                 -0.045674748  0.124785733     -0.36603  0.71570115
+2.  POILN{-4}                -0.576731827  0.901613570     -0.63967  0.52495228
+3.  POILN{-3}                 1.197713984  0.934592143      1.28154  0.20519407
+4.  POILN{-2}                -0.716168108  0.963536434     -0.74327  0.46037066
+5.  POILN{-1}                 0.280350828  0.968393134      0.28950  0.77324842
+6.  POILN                     0.883207858  0.942223854      0.93737  0.35252562
+7.  POILN{1}                 -0.756420985  0.973408045     -0.77709  0.44032168
+8.  POILN{2}                  1.280289840  0.976662378      1.31088  0.19515435
+9.  POILN{3}                 -0.851100343  0.967156342     -0.88000  0.38255297
+10. POILN{4}                 -0.284648398  0.933007680     -0.30509  0.76141127
+
+compute res1(7,3)=%rbarsq
+
+linreg(print) f12 /
+# constant poilh{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F12
+Quarterly Data From 1984:01 To 2000:03
+Usable Observations     67     Degrees of Freedom    57
+Centered R**2     0.074997      R Bar **2  -0.071056
+Uncentered R**2   0.076518      T x R**2       5.127
+Mean of Dependent Variable      -0.039645797
+Std Error of Dependent Variable  0.984303413
+Standard Error of Estimate       1.018673546
+Sum of Squared Residuals        59.148660236
+Regression F(9,57)                    0.5135
+Significance Level of F           0.85877234
+Durbin-Watson Statistic             1.909416
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  -0.09625746   0.17846312     -0.53937  0.59173309
+2.  POILH{-4}                 -5.95423619   8.17794032     -0.72809  0.46954206
+3.  POILH{-3}                 10.96153410   8.47933242      1.29274  0.20131819
+4.  POILH{-2}                 -3.13366075   8.51671825     -0.36794  0.71427912
+5.  POILH{-1}                  6.49257510   8.52888452      0.76125  0.44964847
+6.  POILH                     -4.50938764   8.73310639     -0.51636  0.60760365
+7.  POILH{1}                  -4.15477308   8.66934037     -0.47925  0.63359509
+8.  POILH{2}                   8.97449716   8.84941390      1.01413  0.31480408
+9.  POILH{3}                   4.43415875   9.29132138      0.47724  0.63501846
+10. POILH{4}                  -6.17074000   8.82491219     -0.69924  0.48724513
+
+compute res1(8,3)=%rbarsq
+**
+**
+**
+linreg(print) f2t /
+# constant cee{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F2T
+Quarterly Data From 1961:02 To 2000:03
+Usable Observations    158     Degrees of Freedom   148
+Centered R**2     0.053198      R Bar **2  -0.004378
+Uncentered R**2   0.053372      T x R**2       8.433
+Mean of Dependent Variable      0.0134910190
+Std Error of Dependent Variable 0.9968796557
+Standard Error of Estimate      0.9990594507
+Sum of Squared Residuals        147.72172835
+Regression F(9,148)                   0.9240
+Significance Level of F           0.50622072
+Durbin-Watson Statistic             2.042016
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.007741968  0.079560330      0.09731  0.92261234
+2.  CEE{-4}                  -0.140105018  0.115617804     -1.21179  0.22752219
+3.  CEE{-3}                  -0.022239142  0.115959775     -0.19178  0.84817487
+4.  CEE{-2}                  -0.144254632  0.114859658     -1.25592  0.21112372
+5.  CEE{-1}                  -0.024005363  0.115372196     -0.20807  0.83546124
+6.  CEE                       0.135384301  0.114885897      1.17842  0.24051882
+7.  CEE{1}                    0.085000505  0.114938449      0.73953  0.46075622
+8.  CEE{2}                    0.152779341  0.115014769      1.32835  0.18610872
+9.  CEE{3}                    0.107654654  0.117835204      0.91360  0.36241116
+10. CEE{4}                    0.147436093  0.117750036      1.25211  0.21250461
+
+compute res2(1,1)=%rbarsq
+
+linreg(print) f2t /
+# constant gali{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F2T
+Quarterly Data From 1961:02 To 2000:03
+Usable Observations    158     Degrees of Freedom   148
+Centered R**2     0.079740      R Bar **2   0.023778
+Uncentered R**2   0.079910      T x R**2      12.626
+Mean of Dependent Variable      0.0134910190
+Std Error of Dependent Variable 0.9968796557
+Standard Error of Estimate      0.9849562203
+Sum of Squared Residuals        143.58053588
+Regression F(9,148)                   1.4249
+Significance Level of F           0.18226304
+Durbin-Watson Statistic             1.975184
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                   0.02364027   0.07852506      0.30105  0.76379597
+2.  GALI{-4}                  21.86358642  11.01195290      1.98544  0.04894315
+3.  GALI{-3}                  12.54911014  10.88065685      1.15334  0.25062958
+4.  GALI{-2}                  13.96240396  10.87971260      1.28334  0.20137775
+5.  GALI{-1}                   5.39132915  10.87741711      0.49564  0.62088061
+6.  GALI                      14.31183259  10.81465789      1.32337  0.18775190
+7.  GALI{1}                    0.52368155  10.83879337      0.04832  0.96152995
+8.  GALI{2}                   -2.13470626  10.87642821     -0.19627  0.84466882
+9.  GALI{3}                   16.13685933  10.88458681      1.48254  0.14032229
+10. GALI{4}                  -17.27473615  10.96153282     -1.57594  0.11717441
+
+compute res2(2,1)=%rbarsq
+
+linreg(print) f2t /
+# constant cpall{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F2T
+Quarterly Data From 1961:02 To 2000:04
+Usable Observations    159     Degrees of Freedom   149
+Centered R**2     0.030228      R Bar **2  -0.028349
+Uncentered R**2   0.030660      T x R**2       4.875
+Mean of Dependent Variable      0.0210233019
+Std Error of Dependent Variable 0.9982486068
+Standard Error of Estimate      1.0122995038
+Sum of Squared Residuals        152.68779251
+Regression F(9,149)                   0.5160
+Significance Level of F           0.86127212
+Durbin-Watson Statistic             1.964477
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.039048131  0.082970657      0.47063  0.63859620
+2.  CPALL{-4}                -0.680588337  2.143261211     -0.31755  0.75127238
+3.  CPALL{-3}                -3.237423078  2.242084297     -1.44393  0.15085675
+4.  CPALL{-2}                 1.129192426  2.265150904      0.49851  0.61886219
+5.  CPALL{-1}                 1.287985739  2.313143597      0.55681  0.57849137
+6.  CPALL                     2.248286383  2.283491697      0.98458  0.32642518
+7.  CPALL{1}                 -2.754866765  2.302885916     -1.19627  0.23349245
+8.  CPALL{2}                  0.039336155  2.270498717      0.01732  0.98620060
+9.  CPALL{3}                 -1.078622573  2.249341671     -0.47953  0.63226607
+10. CPALL{4}                 -0.326217245  2.204109160     -0.14800  0.88253961
+
+compute res2(3,1)=%rbarsq
+
+linreg(print) f2t /
+# constant cpfood{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F2T
+Quarterly Data From 1961:02 To 2000:04
+Usable Observations    159     Degrees of Freedom   149
+Centered R**2     0.052424      R Bar **2  -0.004812
+Uncentered R**2   0.052847      T x R**2       8.403
+Mean of Dependent Variable      0.0210233019
+Std Error of Dependent Variable 0.9982486068
+Standard Error of Estimate      1.0006475919
+Sum of Squared Residuals        149.19304486
+Regression F(9,149)                   0.9159
+Significance Level of F           0.51314399
+Durbin-Watson Statistic             1.972634
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.031669644  0.080991122      0.39103  0.69633649
+2.  CPFOOD{-4}                0.015106167  1.456358690      0.01037  0.99173792
+3.  CPFOOD{-3}               -1.560797178  1.490782367     -1.04697  0.29681105
+4.  CPFOOD{-2}                1.571345466  1.475442585      1.06500  0.28859899
+5.  CPFOOD{-1}                1.403331683  1.507692285      0.93078  0.35347236
+6.  CPFOOD                   -0.371749927  1.533428389     -0.24243  0.80877992
+7.  CPFOOD{1}                -3.097767414  1.509849207     -2.05171  0.04194903
+8.  CPFOOD{2}                -0.974954159  1.497773944     -0.65094  0.51609074
+9.  CPFOOD{3}                -0.778044216  1.522995254     -0.51086  0.61020204
+10. CPFOOD{4}                 0.971350659  1.528289305      0.63558  0.52602493
+
+compute res2(4,1)=%rbarsq
+
+linreg(print) f2t /
+# constant cpmat{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F2T
+Quarterly Data From 1961:02 To 2000:04
+Usable Observations    159     Degrees of Freedom   149
+Centered R**2     0.024553      R Bar **2  -0.034366
+Uncentered R**2   0.024988      T x R**2       3.973
+Mean of Dependent Variable      0.0210233019
+Std Error of Dependent Variable 0.9982486068
+Standard Error of Estimate      1.0152568516
+Sum of Squared Residuals        153.58122474
+Regression F(9,149)                   0.4167
+Significance Level of F           0.92465919
+Durbin-Watson Statistic             1.977262
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.033987387  0.083290550      0.40806  0.68381676
+2.  CPMAT{-4}                -0.072865316  2.123194091     -0.03432  0.97266892
+3.  CPMAT{-3}                -1.539978772  2.337642608     -0.65877  0.51105747
+4.  CPMAT{-2}                -0.009086216  2.332089351     -0.00390  0.99689653
+5.  CPMAT{-1}                -1.765413811  2.351131681     -0.75088  0.45391011
+6.  CPMAT                     3.265902602  2.351178308      1.38905  0.16689032
+7.  CPMAT{1}                 -1.218052262  2.345107110     -0.51940  0.60425145
+8.  CPMAT{2}                  1.506843468  2.318924969      0.64980  0.51682028
+9.  CPMAT{3}                 -0.872550640  2.321786154     -0.37581  0.70759261
+10. CPMAT{4}                 -1.682299701  2.128601046     -0.79033  0.43059046
+
+compute res2(5,1)=%rbarsq
+
+linreg(print) f2t /
+# constant senmatpr{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F2T
+Quarterly Data From 1961:02 To 2000:03
+Usable Observations    158     Degrees of Freedom   148
+Centered R**2     0.029045      R Bar **2  -0.030000
+Uncentered R**2   0.029224      T x R**2       4.617
+Mean of Dependent Variable      0.0134910190
+Std Error of Dependent Variable 0.9968796557
+Standard Error of Estimate      1.0117221390
+Sum of Squared Residuals        151.49008961
+Regression F(9,148)                   0.4919
+Significance Level of F           0.87826524
+Durbin-Watson Statistic             2.012272
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.034581454  0.086832157      0.39826  0.69101519
+2.  SENMATPR{-4}              1.347581291  3.126795009      0.43098  0.66711108
+3.  SENMATPR{-3}             -2.980672859  3.690957737     -0.80756  0.42063945
+4.  SENMATPR{-2}             -1.381844449  3.677859157     -0.37572  0.70766320
+5.  SENMATPR{-1}             -0.149140965  3.730615368     -0.03998  0.96816488
+6.  SENMATPR                  3.235541720  3.998415081      0.80921  0.41969563
+7.  SENMATPR{1}              -1.478035204  3.729860285     -0.39627  0.69247591
+8.  SENMATPR{2}               2.323898517  3.674384137      0.63246  0.52806267
+9.  SENMATPR{3}              -0.691322786  3.676724983     -0.18803  0.85111321
+10. SENMATPR{4}              -3.127428108  3.138438218     -0.99649  0.32063767
+
+compute res2(6,1)=%rbarsq
+
+linreg(print) f2t /
+# constant poiln{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F2T
+Quarterly Data From 1961:02 To 2000:03
+Usable Observations    158     Degrees of Freedom   148
+Centered R**2     0.015325      R Bar **2  -0.044554
+Uncentered R**2   0.015506      T x R**2       2.450
+Mean of Dependent Variable      0.0134910190
+Std Error of Dependent Variable 0.9968796557
+Standard Error of Estimate      1.0188450886
+Sum of Squared Residuals        153.63070655
+Regression F(9,148)                   0.2559
+Significance Level of F           0.98489724
+Durbin-Watson Statistic             2.005049
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                 -0.005315001  0.084072855     -0.06322  0.94967743
+2.  POILN{-4}                 0.713134769  0.810874625      0.87946  0.38057565
+3.  POILN{-3}                 0.462841443  0.851596783      0.54350  0.58760444
+4.  POILN{-2}                -0.007313803  0.865968598     -0.00845  0.99327268
+5.  POILN{-1}                 0.215117674  0.870615580      0.24709  0.80518342
+6.  POILN                    -0.355992439  0.855729261     -0.41601  0.67800486
+7.  POILN{1}                  0.427663630  0.873530976      0.48958  0.62515572
+8.  POILN{2}                  0.373593150  0.877355554      0.42582  0.67085959
+9.  POILN{3}                  0.063062139  0.876193715      0.07197  0.94272070
+10. POILN{4}                 -0.202472096  0.834361521     -0.24267  0.80859927
+
+compute res2(7,1)=%rbarsq
+
+linreg(print) f2t /
+# constant poilh{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F2T
+Quarterly Data From 1961:02 To 2000:03
+Usable Observations    158     Degrees of Freedom   148
+Centered R**2     0.051938      R Bar **2  -0.005714
+Uncentered R**2   0.052113      T x R**2       8.234
+Mean of Dependent Variable      0.0134910190
+Std Error of Dependent Variable 0.9968796557
+Standard Error of Estimate      0.9997239017
+Sum of Squared Residuals        147.91828618
+Regression F(9,148)                   0.9009
+Significance Level of F           0.52627039
+Durbin-Watson Statistic             1.998352
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                 -0.048830378  0.106810827     -0.45717  0.64822140
+2.  POILH{-4}                 9.787384308  5.506799707      1.77733  0.07756833
+3.  POILH{-3}                -1.129866306  5.718327070     -0.19759  0.84363943
+4.  POILH{-2}                -6.601323574  5.794411849     -1.13926  0.25643659
+5.  POILH{-1}                 2.422837237  5.775090889      0.41953  0.67543549
+6.  POILH                     0.982518385  5.813817041      0.16900  0.86602965
+7.  POILH{1}                  5.112534465  5.802990734      0.88102  0.37973701
+8.  POILH{2}                  5.030433281  5.873538269      0.85646  0.39312959
+9.  POILH{3}                 -7.216704437  5.933652484     -1.21623  0.22583235
+10. POILH{4}                  0.064480850  5.697916547      0.01132  0.99098612
+
+compute res2(8,1)=%rbarsq
+
+******
+linreg(print) f21 /
+# constant cee{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F21
+Quarterly Data From 1961:02 To 1983:04
+Usable Observations     91     Degrees of Freedom    81
+Centered R**2     0.033707      R Bar **2  -0.073659
+Uncentered R**2   0.034931      T x R**2       3.179
+Mean of Dependent Variable      0.0349796430
+Std Error of Dependent Variable 0.9877456456
+Standard Error of Estimate      1.0234774138
+Sum of Squared Residuals        84.847987341
+Regression F(9,81)                    0.3139
+Significance Level of F           0.96828625
+Durbin-Watson Statistic             2.041568
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.031489804  0.107393279      0.29322  0.77010429
+2.  CEE{-4}                  -0.101353303  0.131008709     -0.77364  0.44139701
+3.  CEE{-3}                  -0.030989971  0.131195212     -0.23621  0.81386393
+4.  CEE{-2}                  -0.118023431  0.128197917     -0.92063  0.35997507
+5.  CEE{-1}                  -0.037067610  0.128105905     -0.28935  0.77305188
+6.  CEE                       0.065900015  0.128392704      0.51327  0.60916020
+7.  CEE{1}                    0.021559214  0.129677647      0.16625  0.86837265
+8.  CEE{2}                    0.045302827  0.129730495      0.34921  0.72783993
+9.  CEE{3}                    0.103285038  0.132723564      0.77820  0.43872036
+10. CEE{4}                    0.093108220  0.132913259      0.70052  0.48561082
+
+compute res2(1,2)=%rbarsq
+
+linreg(print) f21 /
+# constant gali{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F21
+Quarterly Data From 1961:02 To 1983:04
+Usable Observations     91     Degrees of Freedom    81
+Centered R**2     0.059813      R Bar **2  -0.044652
+Uncentered R**2   0.061004      T x R**2       5.551
+Mean of Dependent Variable      0.0349796430
+Std Error of Dependent Variable 0.9877456456
+Standard Error of Estimate      1.0095572185
+Sum of Squared Residuals        82.555667976
+Regression F(9,81)                    0.5726
+Significance Level of F           0.81579152
+Durbin-Watson Statistic             1.953782
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                   0.03222855   0.10612512      0.30368  0.76214698
+2.  GALI{-4}                  13.96502849  13.75038974      1.01561  0.31283938
+3.  GALI{-3}                   6.47209610  13.31118513      0.48621  0.62812770
+4.  GALI{-2}                   6.29523723  13.30151174      0.47327  0.63729190
+5.  GALI{-1}                   1.79332287  13.39845013      0.13385  0.89385671
+6.  GALI                       8.77295962  13.26453501      0.66138  0.51024268
+7.  GALI{1}                    4.19265047  13.22917577      0.31692  0.75211626
+8.  GALI{2}                   -1.22413347  13.16171544     -0.09301  0.92612755
+9.  GALI{3}                   21.35941787  13.14421743      1.62500  0.10804655
+10. GALI{4}                  -13.09257177  13.31265975     -0.98347  0.32830579
+
+compute res2(2,2)=%rbarsq
+
+linreg(print) f21 /
+# constant cpall{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F21
+Quarterly Data From 1961:02 To 1983:04
+Usable Observations     91     Degrees of Freedom    81
+Centered R**2     0.020839      R Bar **2  -0.087956
+Uncentered R**2   0.022079      T x R**2       2.009
+Mean of Dependent Variable      0.0349796430
+Std Error of Dependent Variable 0.9877456456
+Standard Error of Estimate      1.0302695449
+Sum of Squared Residuals        85.977882142
+Regression F(9,81)                    0.1915
+Significance Level of F           0.99450467
+Durbin-Watson Statistic             1.991239
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.030143680  0.121007695      0.24911  0.80390977
+2.  CPALL{-4}                 0.674291029  2.709359480      0.24887  0.80408767
+3.  CPALL{-3}                -1.342758378  2.770992888     -0.48458  0.62928450
+4.  CPALL{-2}                -0.235427809  2.835424422     -0.08303  0.93403183
+5.  CPALL{-1}                -0.024652716  2.896319732     -0.00851  0.99322963
+6.  CPALL                     2.296669414  2.795816819      0.82147  0.41379203
+7.  CPALL{1}                 -1.816792069  2.901248541     -0.62621  0.53293768
+8.  CPALL{2}                  1.222749256  2.834333539      0.43141  0.66731904
+9.  CPALL{3}                 -0.751756763  2.796435009     -0.26883  0.78874648
+10. CPALL{4}                  0.563483904  2.747551692      0.20509  0.83801958
+
+compute res2(3,2)=%rbarsq
+
+linreg(print) f21 /
+# constant cpfood{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F21
+Quarterly Data From 1961:02 To 1983:04
+Usable Observations     91     Degrees of Freedom    81
+Centered R**2     0.051018      R Bar **2  -0.054425
+Uncentered R**2   0.052219      T x R**2       4.752
+Mean of Dependent Variable      0.0349796430
+Std Error of Dependent Variable 0.9877456456
+Standard Error of Estimate      1.0142685530
+Sum of Squared Residuals        83.327996510
+Regression F(9,81)                    0.4838
+Significance Level of F           0.88150723
+Durbin-Watson Statistic             1.990219
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.029624347  0.116819038      0.25359  0.80045352
+2.  CPFOOD{-4}                0.501633516  1.839410843      0.27271  0.78576694
+3.  CPFOOD{-3}               -1.083318841  1.824982947     -0.59360  0.55443047
+4.  CPFOOD{-2}                1.654785429  1.792256200      0.92330  0.35859450
+5.  CPFOOD{-1}                1.265127320  1.816457543      0.69648  0.48812183
+6.  CPFOOD                   -0.087402728  1.882606853     -0.04643  0.96308464
+7.  CPFOOD{1}                -2.335594172  1.821030521     -1.28257  0.20330194
+8.  CPFOOD{2}                -0.800444524  1.810884742     -0.44202  0.65965375
+9.  CPFOOD{3}                -0.260407700  1.861245836     -0.13991  0.88907808
+10. CPFOOD{4}                 1.509904871  1.872153285      0.80651  0.42231221
+
+compute res2(4,2)=%rbarsq
+
+linreg(print) f21 /
+# constant cpmat{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F21
+Quarterly Data From 1961:02 To 1983:04
+Usable Observations     91     Degrees of Freedom    81
+Centered R**2     0.060339      R Bar **2  -0.044068
+Uncentered R**2   0.061529      T x R**2       5.599
+Mean of Dependent Variable      0.0349796430
+Std Error of Dependent Variable 0.9877456456
+Standard Error of Estimate      1.0092749459
+Sum of Squared Residuals        82.509509233
+Regression F(9,81)                    0.5779
+Significance Level of F           0.81149584
+Durbin-Watson Statistic             2.049062
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.022061888  0.116997728      0.18857  0.85090400
+2.  CPMAT{-4}                 1.858649261  2.647600083      0.70201  0.48468352
+3.  CPMAT{-3}                 0.894820698  2.837770461      0.31533  0.75332566
+4.  CPMAT{-2}                -2.627409178  2.844747930     -0.92360  0.35843782
+5.  CPMAT{-1}                -3.333595490  2.849249945     -1.16999  0.24543583
+6.  CPMAT                     3.644231724  2.807124104      1.29821  0.19790009
+7.  CPMAT{1}                 -0.082276737  2.857499127     -0.02879  0.97710029
+8.  CPMAT{2}                  3.845462391  2.835342281      1.35626  0.17878494
+9.  CPMAT{3}                 -1.264582640  2.834128207     -0.44620  0.65664468
+10. CPMAT{4}                 -1.875325992  2.653287039     -0.70679  0.48172317
+
+compute res2(5,2)=%rbarsq
+
+linreg(print) f21 /
+# constant senmatpr{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F21
+Quarterly Data From 1961:02 To 1983:04
+Usable Observations     91     Degrees of Freedom    81
+Centered R**2     0.056514      R Bar **2  -0.048318
+Uncentered R**2   0.057709      T x R**2       5.251
+Mean of Dependent Variable      0.0349796430
+Std Error of Dependent Variable 0.9877456456
+Standard Error of Estimate      1.0113271422
+Sum of Squared Residuals        82.845389666
+Regression F(9,81)                    0.5391
+Significance Level of F           0.84187154
+Durbin-Watson Statistic             2.090138
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.036454253  0.122923950      0.29656  0.76756199
+2.  SENMATPR{-4}              3.395664855  3.791078078      0.89570  0.37306769
+3.  SENMATPR{-3}             -0.148648151  4.417955475     -0.03365  0.97324192
+4.  SENMATPR{-2}             -4.852275910  4.426422266     -1.09621  0.27623663
+5.  SENMATPR{-1}             -2.167938853  4.491298901     -0.48270  0.63061252
+6.  SENMATPR                  3.914459565  4.809168254      0.81396  0.41805561
+7.  SENMATPR{1}               0.167190582  4.516392352      0.03702  0.97056125
+8.  SENMATPR{2}               4.049569659  4.422158033      0.91575  0.36251887
+9.  SENMATPR{3}              -1.601209581  4.407398887     -0.36330  0.71732695
+10. SENMATPR{4}              -3.018425781  3.810610491     -0.79211  0.43060980
+
+compute res2(6,2)=%rbarsq
+
+linreg(print) f21 /
+# constant poiln{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F21
+Quarterly Data From 1961:02 To 1983:04
+Usable Observations     91     Degrees of Freedom    81
+Centered R**2     0.064455      R Bar **2  -0.039494
+Uncentered R**2   0.065640      T x R**2       5.973
+Mean of Dependent Variable      0.0349796430
+Std Error of Dependent Variable 0.9877456456
+Standard Error of Estimate      1.0070618169
+Sum of Squared Residuals        82.148053745
+Regression F(9,81)                    0.6201
+Significance Level of F           0.77667707
+Durbin-Watson Statistic             2.043310
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.094833041  0.129865044      0.73024  0.46734847
+2.  POILN{-4}                 2.499423555  2.212925749      1.12947  0.26203524
+3.  POILN{-3}                -1.036008390  2.279976539     -0.45439  0.65076040
+4.  POILN{-2}                -0.107828422  2.293592115     -0.04701  0.96261866
+5.  POILN{-1}                -0.984097316  2.281504481     -0.43134  0.66736918
+6.  POILN                    -1.021393020  2.276720138     -0.44862  0.65490024
+7.  POILN{1}                  0.441435099  2.281450399      0.19349  0.84706055
+8.  POILN{2}                  0.941833139  2.294038347      0.41056  0.68248153
+9.  POILN{3}                 -3.794297827  2.281221510     -1.66327  0.10012224
+10. POILN{4}                  0.313770688  2.233595072      0.14048  0.88863118
+
+compute res2(7,2)=%rbarsq
+
+linreg(print) f21 /
+# constant poilh{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F21
+Quarterly Data From 1961:02 To 1983:04
+Usable Observations     91     Degrees of Freedom    81
+Centered R**2     0.081052      R Bar **2  -0.021054
+Uncentered R**2   0.082216      T x R**2       7.482
+Mean of Dependent Variable      0.0349796430
+Std Error of Dependent Variable 0.9877456456
+Standard Error of Estimate      0.9980893061
+Sum of Squared Residuals        80.690763305
+Regression F(9,81)                    0.7938
+Significance Level of F           0.62284720
+Durbin-Watson Statistic             2.059253
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                   0.11740059   0.13526893      0.86791  0.38801040
+2.  POILH{-4}                  9.33667508   7.70549274      1.21169  0.22915368
+3.  POILH{-3}                 -6.20744050   7.98292019     -0.77759  0.43907590
+4.  POILH{-2}                 -1.15517063   8.18430987     -0.14114  0.88810620
+5.  POILH{-1}                 -0.99620620   8.15503763     -0.12216  0.90307615
+6.  POILH                     -1.09273144   8.11971430     -0.13458  0.89327972
+7.  POILH{1}                   2.05465915   8.15433296      0.25197  0.80170136
+8.  POILH{2}                   4.00057290   8.18239696      0.48892  0.62621653
+9.  POILH{3}                 -14.48039901   7.98139883     -1.81427  0.07333904
+10. POILH{4}                  -3.63533524   7.70586181     -0.47176  0.63836481
+
+compute res2(8,2)=%rbarsq
+******
+linreg(print) f22 /
+# constant cee{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F22
+Quarterly Data From 1984:01 To 2000:03
+Usable Observations     67     Degrees of Freedom    57
+Centered R**2     0.147192      R Bar **2   0.012538
+Uncentered R**2   0.148137      T x R**2       9.925
+Mean of Dependent Variable      0.0330626537
+Std Error of Dependent Variable 1.0001102284
+Standard Error of Estimate      0.9938209194
+Sum of Squared Residuals        56.297761131
+Regression F(9,57)                    1.0931
+Significance Level of F           0.38237173
+Durbin-Watson Statistic             2.142325
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                 -0.011214605  0.124415192     -0.09014  0.92849312
+2.  CEE{-4}                   0.001373994  0.304261391      0.00452  0.99641267
+3.  CEE{-3}                   0.147374790  0.316742746      0.46528  0.64350211
+4.  CEE{-2}                   0.106350963  0.325360838      0.32687  0.74496292
+5.  CEE{-1}                  -0.153430299  0.331970902     -0.46218  0.64571162
+6.  CEE                       0.348334016  0.329882195      1.05593  0.29545318
+7.  CEE{1}                    0.025594899  0.296570243      0.08630  0.93152801
+8.  CEE{2}                    0.799320942  0.292384242      2.73380  0.00832574
+9.  CEE{3}                   -0.010887383  0.296653181     -0.03670  0.97085187
+10. CEE{4}                    0.052961390  0.296283253      0.17875  0.85876584
+
+compute res2(1,3)=%rbarsq
+
+linreg(print) f22 /
+# constant gali{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F22
+Quarterly Data From 1984:01 To 2000:03
+Usable Observations     67     Degrees of Freedom    57
+Centered R**2     0.170483      R Bar **2   0.039507
+Uncentered R**2   0.171402      T x R**2      11.484
+Mean of Dependent Variable      0.0330626537
+Std Error of Dependent Variable 1.0001102284
+Standard Error of Estimate      0.9801556875
+Sum of Squared Residuals        54.760194785
+Regression F(9,57)                    1.3016
+Significance Level of F           0.25648037
+Durbin-Watson Statistic             2.015094
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                   0.03144555   0.12473387      0.25210  0.80186971
+2.  GALI{-4}                  43.80296982  20.64170531      2.12206  0.03819084
+3.  GALI{-3}                  -4.84318375  20.89725849     -0.23176  0.81755315
+4.  GALI{-2}                  32.44753665  20.63061196      1.57279  0.12130325
+5.  GALI{-1}                 -10.47900767  20.86557887     -0.50222  0.61745093
+6.  GALI                      36.87142738  20.87385690      1.76639  0.08268448
+7.  GALI{1}                   -9.27419110  21.28657803     -0.43568  0.66471257
+8.  GALI{2}                  -11.54535188  21.63744810     -0.53358  0.59570548
+9.  GALI{3}                  -32.72284650  21.69766114     -1.50813  0.13704490
+10. GALI{4}                  -12.99510761  22.07380787     -0.58871  0.55838057
+
+compute res2(2,3)=%rbarsq
+
+linreg(print) f22 /
+# constant cpall{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F22
+Quarterly Data From 1984:01 To 2000:04
+Usable Observations     68     Degrees of Freedom    58
+Centered R**2     0.136814      R Bar **2   0.002871
+Uncentered R**2   0.138543      T x R**2       9.421
+Mean of Dependent Variable      0.0443345544
+Std Error of Dependent Variable 0.9969611807
+Standard Error of Estimate      0.9955290188
+Sum of Squared Residuals        57.482525577
+Regression F(9,58)                    1.0214
+Significance Level of F           0.43412538
+Durbin-Watson Statistic             2.140120
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.039863852  0.122142614      0.32637  0.74531817
+2.  CPALL{-4}                -2.165122316  3.972105974     -0.54508  0.58778733
+3.  CPALL{-3}                -9.418843970  4.241005332     -2.22090  0.03027710
+4.  CPALL{-2}                 5.355949416  4.159043785      1.28778  0.20293580
+5.  CPALL{-1}                 3.165234141  4.227946869      0.74865  0.45709611
+6.  CPALL                     4.405408317  4.185977085      1.05242  0.29697157
+7.  CPALL{1}                 -4.053318314  4.266121181     -0.95012  0.34599477
+8.  CPALL{2}                 -0.966223743  4.193819677     -0.23039  0.81859765
+9.  CPALL{3}                 -4.355342925  4.189032337     -1.03970  0.30279352
+10. CPALL{4}                 -1.463758481  4.062140895     -0.36034  0.71990065
+
+compute res2(3,3)=%rbarsq
+
+linreg(print) f22 /
+# constant cpfood{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F22
+Quarterly Data From 1984:01 To 2000:04
+Usable Observations     68     Degrees of Freedom    58
+Centered R**2     0.085695      R Bar **2  -0.056180
+Uncentered R**2   0.087526      T x R**2       5.952
+Mean of Dependent Variable      0.0443345544
+Std Error of Dependent Variable 0.9969611807
+Standard Error of Estimate      1.0245830861
+Sum of Squared Residuals        60.886689024
+Regression F(9,58)                    0.6040
+Significance Level of F           0.78845915
+Durbin-Watson Statistic             2.100341
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.006178194  0.128644836      0.04803  0.96186115
+2.  CPFOOD{-4}               -1.025315915  2.827244808     -0.36266  0.71818046
+3.  CPFOOD{-3}               -4.103621155  2.960038276     -1.38634  0.17094936
+4.  CPFOOD{-2}                0.421261555  2.985364764      0.14111  0.88827287
+5.  CPFOOD{-1}                0.661540591  3.113279288      0.21249  0.83246985
+6.  CPFOOD                    2.325826023  3.115485188      0.74654  0.45835836
+7.  CPFOOD{1}                -4.167167590  3.144295730     -1.32531  0.19026537
+8.  CPFOOD{2}                 0.121726416  3.084584763      0.03946  0.96865692
+9.  CPFOOD{3}                -4.650462294  3.088658458     -1.50566  0.13758210
+10. CPFOOD{4}                 0.629274072  3.080595297      0.20427  0.83885739
+
+compute res2(4,3)=%rbarsq
+
+linreg(print) f22 /
+# constant cpmat{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F22
+Quarterly Data From 1984:01 To 2000:04
+Usable Observations     68     Degrees of Freedom    58
+Centered R**2     0.158881      R Bar **2   0.028362
+Uncentered R**2   0.160566      T x R**2      10.918
+Mean of Dependent Variable      0.0443345544
+Std Error of Dependent Variable 0.9969611807
+Standard Error of Estimate      0.9827214595
+Sum of Squared Residuals        56.013005083
+Regression F(9,58)                    1.2173
+Significance Level of F           0.30243183
+Durbin-Watson Statistic             2.019218
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.050424825  0.119760448      0.42105  0.67527667
+2.  CPMAT{-4}                 0.123705114  3.637476738      0.03401  0.97298715
+3.  CPMAT{-3}                -9.884221029  4.108467761     -2.40582  0.01934494
+4.  CPMAT{-2}                 8.329851815  4.076502016      2.04338  0.04556628
+5.  CPMAT{-1}                -0.179654331  4.113567449     -0.04367  0.96531459
+6.  CPMAT                     2.310223808  4.178629223      0.55287  0.58247956
+7.  CPMAT{1}                 -2.290703938  4.072460046     -0.56249  0.57595228
+8.  CPMAT{2}                 -3.366312890  4.033613744     -0.83457  0.40738704
+9.  CPMAT{3}                  2.054253175  4.023970928      0.51050  0.61163598
+10. CPMAT{4}                 -3.229971628  3.590295581     -0.89964  0.37203222
+
+compute res2(5,3)=%rbarsq
+
+linreg(print) f22 /
+# constant senmatpr{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F22
+Quarterly Data From 1984:01 To 2000:03
+Usable Observations     67     Degrees of Freedom    57
+Centered R**2     0.171400      R Bar **2   0.040568
+Uncentered R**2   0.172318      T x R**2      11.545
+Mean of Dependent Variable      0.0330626537
+Std Error of Dependent Variable 1.0001102284
+Standard Error of Estimate      0.9796138656
+Sum of Squared Residuals        54.699669560
+Regression F(9,57)                    1.3101
+Significance Level of F           0.25217252
+Durbin-Watson Statistic             2.004924
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                   0.05737376   0.12101678      0.47410  0.63724148
+2.  SENMATPR{-4}               4.10850526   5.57437896      0.73703  0.46412489
+3.  SENMATPR{-3}             -19.05577552   6.57235762     -2.89938  0.00530110
+4.  SENMATPR{-2}              13.16285748   6.50317924      2.02406  0.04765943
+5.  SENMATPR{-1}              -0.00796875   6.55786149     -0.00122  0.99903470
+6.  SENMATPR                   5.70557806   7.06723697      0.80733  0.42283375
+7.  SENMATPR{1}               -7.50678629   6.49534313     -1.15572  0.25261794
+8.  SENMATPR{2}               -2.11157481   6.47454352     -0.32613  0.74551667
+9.  SENMATPR{3}                5.02556542   6.53595429      0.76891  0.44512071
+10. SENMATPR{4}               -4.81188494   5.53061920     -0.87004  0.38792537
+
+compute res2(6,3)=%rbarsq
+
+linreg(print) f22 /
+# constant poiln{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F22
+Quarterly Data From 1984:01 To 2000:03
+Usable Observations     67     Degrees of Freedom    57
+Centered R**2     0.106597      R Bar **2  -0.034466
+Uncentered R**2   0.107588      T x R**2       7.208
+Mean of Dependent Variable      0.0330626537
+Std Error of Dependent Variable 1.0001102284
+Standard Error of Estimate      1.0171992037
+Sum of Squared Residuals        58.977570539
+Regression F(9,57)                    0.7557
+Significance Level of F           0.65691967
+Durbin-Watson Statistic             2.039370
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  0.035365382  0.124650774      0.28372  0.77765627
+2.  POILN{-4}                -0.251572544  0.900638452     -0.27933  0.78100502
+3.  POILN{-3}                 0.624404715  0.933581357      0.66883  0.50630547
+4.  POILN{-2}                 0.255280417  0.962494345      0.26523  0.79179071
+5.  POILN{-1}                 0.980473735  0.967345792      1.01357  0.31507068
+6.  POILN                    -1.512170123  0.941204815     -1.60663  0.11366125
+7.  POILN{1}                  0.433595156  0.972355280      0.44592  0.65734248
+8.  POILN{2}                 -0.158647564  0.975606093     -0.16261  0.87139721
+9.  POILN{3}                  1.489583073  0.966110338      1.54184  0.12864750
+10. POILN{4}                 -0.987559901  0.931998608     -1.05962  0.29378928
+
+compute res2(7,3)=%rbarsq
+
+linreg(print) f22 /
+# constant poilh{-nl to nl}
+
+Linear Regression - Estimation by Least Squares
+Dependent Variable F22
+Quarterly Data From 1984:01 To 2000:03
+Usable Observations     67     Degrees of Freedom    57
+Centered R**2     0.135418      R Bar **2  -0.001095
+Uncentered R**2   0.136376      T x R**2       9.137
+Mean of Dependent Variable      0.0330626537
+Std Error of Dependent Variable 1.0001102284
+Standard Error of Estimate      1.0006574316
+Sum of Squared Residuals        57.074971837
+Regression F(9,57)                    0.9920
+Significance Level of F           0.45693485
+Durbin-Watson Statistic             2.074823
+
+   Variable                     Coeff       Std Error      T-Stat     Signif
+*******************************************************************************
+1.  Constant                  -0.12547691   0.17530684     -0.71576  0.47706408
+2.  POILH{-4}                  6.73271044   8.03330644      0.83810  0.40547555
+3.  POILH{-3}                  6.44762917   8.32936816      0.77408  0.44208016
+4.  POILH{-2}                -14.03059829   8.36609279     -1.67708  0.09900345
+5.  POILH{-1}                 10.30707247   8.37804389      1.23025  0.22365745
+6.  POILH                     -3.90824790   8.57865392     -0.45558  0.65042413
+7.  POILH{1}                  14.27766993   8.51601566      1.67657  0.09910412
+8.  POILH{2}                   2.91325427   8.69290443      0.33513  0.73875718
+9.  POILH{3}                   2.51624061   9.12699640      0.27569  0.78378161
+10. POILH{4}                  -4.51842687   8.66883606     -0.52123  0.60422828
+
+compute res2(8,3)=%rbarsq
+
+**
+**
+**
+cmom(print,corr) /
+# f1t f2t cee{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1961:02 To 2000:03
+               F1T            F2T          CEE{-4}        CEE{-3}
+F1T      1.00000000000  0.07152440015 -0.09803382247  0.00594740749
+F2T      0.07152440015  1.00000000000 -0.09321692672 -0.00518196054
+CEE{-4} -0.09803382247 -0.09321692672  1.00000000000 -0.02018275777
+CEE{-3}  0.00594740749 -0.00518196054 -0.02018275777  1.00000000000
+CEE{-2}  0.01576929612 -0.07325703130 -0.02286759478 -0.03620375754
+CEE{-1}  0.00638181163  0.00584138515  0.01361524526 -0.03345402225
+CEE      0.06142038628  0.09625880266  0.10025171521  0.02003937772
+CEE{1}   0.06231557099  0.03473486343  0.12550871392  0.09958046272
+CEE{2}  -0.34970135971  0.07767426315  0.05016785926  0.12568249527
+CEE{3}   0.09035422888  0.07114896090 -0.20434083779  0.05375175626
+CEE{4}  -0.03840127825  0.10568941945 -0.01756948709 -0.20289857596
+
+
+             CEE{-2}        CEE{-1}          CEE          CEE{1}
+F1T      0.01576929612  0.00638181163  0.06142038628  0.06231557099
+F2T     -0.07325703130  0.00584138515  0.09625880266  0.03473486343
+CEE{-4} -0.02286759478  0.01361524526  0.10025171521  0.12550871392
+CEE{-3} -0.03620375754 -0.03345402225  0.02003937772  0.09958046272
+CEE{-2}  1.00000000000 -0.04751655155 -0.03123458736  0.02331556634
+CEE{-1} -0.04751655155  1.00000000000 -0.04559853059 -0.02944051040
+CEE     -0.03123458736 -0.04559853059  1.00000000000 -0.04754798143
+CEE{1}   0.02331556634 -0.02944051040 -0.04754798143  1.00000000000
+CEE{2}   0.10336335033  0.02530885861 -0.03110020669 -0.04685487004
+CEE{3}   0.13074525548  0.10664751698  0.02437445249 -0.03162890071
+CEE{4}   0.05922872336  0.13465467356  0.10469580821  0.02455139298
+
+
+             CEE{2}         CEE{3}         CEE{4}
+F1T     -0.34970135971  0.09035422888 -0.03840127825
+F2T      0.07767426315  0.07114896090  0.10568941945
+CEE{-4}  0.05016785926 -0.20434083779 -0.01756948709
+CEE{-3}  0.12568249527  0.05375175626 -0.20289857596
+CEE{-2}  0.10336335033  0.13074525548  0.05922872336
+CEE{-1}  0.02530885861  0.10664751698  0.13465467356
+CEE     -0.03110020669  0.02437445249  0.10469580821
+CEE{1}  -0.04685487004 -0.03162890071  0.02455139298
+CEE{2}   1.00000000000 -0.04743584465 -0.03167228832
+CEE{3}  -0.04743584465  1.00000000000 -0.04858963272
+CEE{4}  -0.03167228832 -0.04858963272  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.15399
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.9811        -0.2760
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+     -0.1438         0.0851         0.2001         0.0822         0.1058
+       0.1062        -0.9514         0.0519        -0.2198
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.04874
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.2064         0.9638
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+     -0.5206        -0.0421        -0.4009        -0.0481         0.4845
+       0.3192         0.1467         0.3733         0.4023
+
+
+compute nobs = 0.0 + %nobs
+compute nn = 0.0 + 2.0*nl + 2.0
+compute dffac = (nobs-1.0)/(nobs-nn)
+dis nobs
+    158.00000
+dis nn
+     10.00000
+dis dffac
+      1.06081
+compute resc(1,1)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f1t f2t gali{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1961:02 To 2000:03
+                F1T            F2T         GALI{-4}       GALI{-3}
+F1T       1.00000000000  0.07152440015  0.05851199612  0.08986577360
+F2T       0.07152440015  1.00000000000  0.14273152327  0.07508202093
+GALI{-4}  0.05851199612  0.14273152327  1.00000000000 -0.02727331023
+GALI{-3}  0.08986577360  0.07508202093 -0.02727331023  1.00000000000
+GALI{-2} -0.03490810589  0.10455598654 -0.01873903816 -0.01780059345
+GALI{-1} -0.01387491657  0.01646952271 -0.03612445232 -0.02596382499
+GALI      0.18862241243  0.09434431468 -0.03625181114 -0.01867638287
+GALI{1}  -0.15352855783  0.00572818126  0.04437274612 -0.01583491892
+GALI{2}   0.11569380591 -0.01768350203 -0.02119313629  0.06235420108
+GALI{3}   0.06642439562  0.12456395727  0.02171006641 -0.01946875694
+GALI{4}   0.00554464490 -0.11492629675  0.06524523723  0.03057500510
+
+
+             GALI{-2}       GALI{-1}         GALI          GALI{1}
+F1T      -0.03490810589 -0.01387491657  0.18862241243 -0.15352855783
+F2T       0.10455598654  0.01646952271  0.09434431468  0.00572818126
+GALI{-4} -0.01873903816 -0.03612445232 -0.03625181114  0.04437274612
+GALI{-3} -0.01780059345 -0.02596382499 -0.01867638287 -0.01583491892
+GALI{-2}  1.00000000000 -0.02058934909 -0.02374642940 -0.01977259751
+GALI{-1} -0.02058934909  1.00000000000 -0.02600748423 -0.02982512048
+GALI     -0.02374642940 -0.02600748423  1.00000000000 -0.02205613542
+GALI{1}  -0.01977259751 -0.02982512048 -0.02205613542  1.00000000000
+GALI{2}  -0.01733457237 -0.02525500459 -0.02686497568 -0.02664202400
+GALI{3}   0.06655855212 -0.01836064947 -0.01955398631 -0.01748937354
+GALI{4}  -0.02287365443  0.06442032444 -0.02024808103 -0.02791747463
+
+
+              GALI{2}        GALI{3}        GALI{4}
+F1T       0.11569380591  0.06642439562  0.00554464490
+F2T      -0.01768350203  0.12456395727 -0.11492629675
+GALI{-4} -0.02119313629  0.02171006641  0.06524523723
+GALI{-3}  0.06235420108 -0.01946875694  0.03057500510
+GALI{-2} -0.01733457237  0.06655855212 -0.02287365443
+GALI{-1} -0.02525500459 -0.01836064947  0.06442032444
+GALI     -0.02686497568 -0.01955398631 -0.02024808103
+GALI{1}  -0.02664202400 -0.01748937354 -0.02791747463
+GALI{2}   1.00000000000 -0.01775294162 -0.02594176404
+GALI{3}  -0.01775294162  1.00000000000 -0.01142594711
+GALI{4}  -0.02594176404 -0.01142594711  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.11511
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.7418         0.6196
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.4503         0.3563         0.1129         0.0610         0.6136
+      -0.3159         0.2203         0.3713        -0.2258
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.05051
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.6744        -0.7882
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+     -0.3289        -0.0599        -0.4558        -0.1524         0.2130
+      -0.4565         0.3958        -0.1958         0.4420
+
+
+compute resc(2,1)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f1t f2t cpall{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1961:02 To 2000:04
+                 F1T            F2T         CPALL{-4}      CPALL{-3}
+F1T        1.00000000000  0.06867212177  0.12493856048  0.14942407278
+F2T        0.06867212177  1.00000000000 -0.01793326220 -0.09784469710
+CPALL{-4}  0.12493856048 -0.01793326220  1.00000000000  0.32912956560
+CPALL{-3}  0.14942407278 -0.09784469710  0.32912956560  1.00000000000
+CPALL{-2}  0.09901955754  0.01036464219  0.26977043499  0.33692603195
+CPALL{-1}  0.19858757445  0.01889841265  0.27721152066  0.27782880150
+CPALL      0.08285454720  0.02955772704  0.13962869000  0.28361148625
+CPALL{1}   0.08143440189 -0.08895532947 -0.05899624921  0.14401728336
+CPALL{2}  -0.14091890899  0.00512447605 -0.09574786947 -0.07491387691
+CPALL{3}  -0.07151185045 -0.03306667287 -0.13070957112 -0.09293792789
+CPALL{4}  -0.09874868794 -0.03234114462 -0.15731638309 -0.14173260306
+
+
+              CPALL{-2}      CPALL{-1}        CPALL        CPALL{1}
+F1T        0.09901955754  0.19858757445  0.08285454720  0.08143440189
+F2T        0.01036464219  0.01889841265  0.02955772704 -0.08895532947
+CPALL{-4}  0.26977043499  0.27721152066  0.13962869000 -0.05899624921
+CPALL{-3}  0.33692603195  0.27782880150  0.28361148625  0.14401728336
+CPALL{-2}  1.00000000000  0.33738060477  0.27693928444  0.28229660734
+CPALL{-1}  0.33738060477  1.00000000000  0.33619603416  0.27527477983
+CPALL      0.27693928444  0.33619603416  1.00000000000  0.33647469926
+CPALL{1}   0.28229660734  0.27527477983  0.33647469926  1.00000000000
+CPALL{2}   0.14740893750  0.28688564190  0.27551604321  0.33605671502
+CPALL{3}  -0.07451802343  0.14774589267  0.28601369376  0.27425067152
+CPALL{4}  -0.09282872980 -0.07421182595  0.14894858769  0.28754937495
+
+
+              CPALL{2}       CPALL{3}       CPALL{4}
+F1T       -0.14091890899 -0.07151185045 -0.09874868794
+F2T        0.00512447605 -0.03306667287 -0.03234114462
+CPALL{-4} -0.09574786947 -0.13070957112 -0.15731638309
+CPALL{-3} -0.07491387691 -0.09293792789 -0.14173260306
+CPALL{-2}  0.14740893750 -0.07451802343 -0.09282872980
+CPALL{-1}  0.28688564190  0.14774589267 -0.07421182595
+CPALL      0.27551604321  0.28601369376  0.14894858769
+CPALL{1}   0.33605671502  0.27425067152  0.28754937495
+CPALL{2}   1.00000000000  0.34030509585  0.26930611371
+CPALL{3}   0.34030509585  1.00000000000  0.34128537410
+CPALL{4}   0.26930611371  0.34128537410  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.10071
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.9963        -0.1785
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.0958         0.1733        -0.0469         0.6201         0.0956
+       0.3935        -0.6757        -0.1409        -0.1078
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.02936
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.1104         0.9863
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+     -0.1499        -0.7586         0.2675         0.4434         0.5716
+      -0.5959        -0.1290        -0.2934        -0.1020
+
+
+compute resc(3,1)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f1t f2t cpfood{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1961:02 To 2000:04
+                  F1T            F2T        CPFOOD{-4}     CPFOOD{-3}
+F1T         1.00000000000  0.06867212177  0.05193923489  0.06769295674
+F2T         0.06867212177  1.00000000000  0.01748497233 -0.11300603016
+CPFOOD{-4}  0.05193923489  0.01748497233  1.00000000000  0.05536553083
+CPFOOD{-3}  0.06769295674 -0.11300603016  0.05536553083  1.00000000000
+CPFOOD{-2}  0.04733015878  0.04989178489  0.02739483528  0.07510107835
+CPFOOD{-1}  0.07466637263  0.05267545248  0.16716966814  0.04436236192
+CPFOOD     -0.02657968828 -0.03908379022  0.14684062652  0.18152411069
+CPFOOD{1}   0.00259198775 -0.16460386650 -0.04347210066  0.16028727617
+CPFOOD{2}  -0.12096516711 -0.03112759662 -0.00484495813 -0.06409706046
+CPFOOD{3}   0.00633231487 -0.04649235790 -0.11829983496  0.00736288174
+CPFOOD{4}  -0.04750905261  0.01905629599 -0.07140602273 -0.12618950427
+
+
+              CPFOOD{-2}     CPFOOD{-1}       CPFOOD        CPFOOD{1}
+F1T         0.04733015878  0.07466637263 -0.02657968828  0.00259198775
+F2T         0.04989178489  0.05267545248 -0.03908379022 -0.16460386650
+CPFOOD{-4}  0.02739483528  0.16716966814  0.14684062652 -0.04347210066
+CPFOOD{-3}  0.07510107835  0.04436236192  0.18152411069  0.16028727617
+CPFOOD{-2}  1.00000000000  0.06561742086  0.03754460014  0.17583863608
+CPFOOD{-1}  0.06561742086  1.00000000000  0.06025787748  0.03011913435
+CPFOOD      0.03754460014  0.06025787748  1.00000000000  0.05561310513
+CPFOOD{1}   0.17583863608  0.03011913435  0.05561310513  1.00000000000
+CPFOOD{2}   0.17455910638  0.18982498941  0.03852333646  0.06211449935
+CPFOOD{3}  -0.07231434411  0.16874522975  0.18590569360  0.03420020220
+CPFOOD{4}   0.01121258409 -0.07169392779  0.17025278678  0.19067723933
+
+
+               CPFOOD{2}      CPFOOD{3}      CPFOOD{4}
+F1T        -0.12096516711  0.00633231487 -0.04750905261
+F2T        -0.03112759662 -0.04649235790  0.01905629599
+CPFOOD{-4} -0.00484495813 -0.11829983496 -0.07140602273
+CPFOOD{-3} -0.06409706046  0.00736288174 -0.12618950427
+CPFOOD{-2}  0.17455910638 -0.07231434411  0.01121258409
+CPFOOD{-1}  0.18982498941  0.16874522975 -0.07169392779
+CPFOOD      0.03852333646  0.18590569360  0.17025278678
+CPFOOD{1}   0.06211449935  0.03420020220  0.19067723933
+CPFOOD{2}   1.00000000000  0.07069535586  0.02789499920
+CPFOOD{3}   0.07069535586  1.00000000000  0.07355512353
+CPFOOD{4}   0.02789499920  0.07355512353  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.05341
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.2218         0.9600
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.0413        -0.3149         0.4294         0.4089        -0.1285
+      -0.7203        -0.3627        -0.1585         0.2023
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.03332
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.9775        -0.2884
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.2089         0.4238         0.2130         0.3391        -0.2033
+       0.2538        -0.6869         0.1797        -0.2020
+
+
+compute resc(4,1)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f1t f2t cpmat{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1961:02 To 2000:04
+                 F1T            F2T         CPMAT{-4}      CPMAT{-3}
+F1T        1.00000000000  0.06867212177  0.15080839011  0.17451300305
+F2T        0.06867212177  1.00000000000 -0.04950031953 -0.05308554753
+CPMAT{-4}  0.15080839011 -0.04950031953  1.00000000000  0.49397367385
+CPMAT{-3}  0.17451300305 -0.05308554753  0.49397367385  1.00000000000
+CPMAT{-2}  0.11337350287 -0.02418068771  0.27946883207  0.49023676003
+CPMAT{-1}  0.24989736667 -0.01733651467  0.21940135518  0.27609750935
+CPMAT      0.14882926486  0.07680093219  0.00655273268  0.21628054334
+CPMAT{1}   0.12373729469  0.00203083468 -0.14089433735  0.00236380837
+CPMAT{2}  -0.11683144271  0.03553018769 -0.20418413319 -0.14613543255
+CPMAT{3}  -0.11609190091 -0.01203248559 -0.13199195685 -0.20845340664
+CPMAT{4}  -0.11079673500 -0.06711219479 -0.07878951358 -0.13896221132
+
+
+              CPMAT{-2}      CPMAT{-1}        CPMAT        CPMAT{1}
+F1T        0.11337350287  0.24989736667  0.14882926486  0.12373729469
+F2T       -0.02418068771 -0.01733651467  0.07680093219  0.00203083468
+CPMAT{-4}  0.27946883207  0.21940135518  0.00655273268 -0.14089433735
+CPMAT{-3}  0.49023676003  0.27609750935  0.21628054334  0.00236380837
+CPMAT{-2}  1.00000000000  0.48913251239  0.27197350094  0.21373015292
+CPMAT{-1}  0.48913251239  1.00000000000  0.48661179096  0.27038225768
+CPMAT      0.27197350094  0.48661179096  1.00000000000  0.48615695955
+CPMAT{1}   0.21373015292  0.27038225768  0.48615695955  1.00000000000
+CPMAT{2}   0.00285685195  0.21339417314  0.26527007157  0.48313199441
+CPMAT{3}  -0.14595898122  0.00274741150  0.21031402519  0.26370077712
+CPMAT{4}  -0.21113295323 -0.14790651287  0.00001330593  0.20865197694
+
+
+              CPMAT{2}       CPMAT{3}       CPMAT{4}
+F1T       -0.11683144271 -0.11609190091 -0.11079673500
+F2T        0.03553018769 -0.01203248559 -0.06711219479
+CPMAT{-4} -0.20418413319 -0.13199195685 -0.07878951358
+CPMAT{-3} -0.14613543255 -0.20845340664 -0.13896221132
+CPMAT{-2}  0.00285685195 -0.14595898122 -0.21113295323
+CPMAT{-1}  0.21339417314  0.00274741150 -0.14790651287
+CPMAT      0.26527007157  0.21031402519  0.00001330593
+CPMAT{1}   0.48313199441  0.26370077712  0.20865197694
+CPMAT{2}   1.00000000000  0.48414150138  0.26327422215
+CPMAT{3}   0.48414150138  1.00000000000  0.48408762484
+CPMAT{4}   0.26327422215  0.48408762484  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.14157
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.9951        -0.1887
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.1730         0.2787        -0.3669         0.7219        -0.0757
+       0.6083        -0.6152        -0.0695        -0.1090
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.02283
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.1206         0.9844
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.0300        -0.3819        -0.1135        -0.3152         0.9636
+      -0.1841         0.2701        -0.2851        -0.5417
+
+
+compute resc(5,1)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f1t f2t senmatpr{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1961:02 To 2000:03
+                    F1T            F2T       SENMATPR{-4}   SENMATPR{-3}
+F1T           1.00000000000  0.07152440015  0.14013270598  0.18162522682
+F2T           0.07152440015  1.00000000000 -0.03041979906 -0.06169170422
+SENMATPR{-4}  0.14013270598 -0.03041979906  1.00000000000  0.63832819019
+SENMATPR{-3}  0.18162522682 -0.06169170422  0.63832819019  1.00000000000
+SENMATPR{-2}  0.17010787127 -0.04693721512  0.42787435954  0.63839846729
+SENMATPR{-1}  0.29517829915  0.02185414062  0.26205877317  0.42882410688
+SENMATPR      0.18568356162  0.06423401260 -0.06193045858  0.26109766639
+SENMATPR{1}   0.10328572589  0.01920854999 -0.14916987406 -0.06710236603
+SENMATPR{2}  -0.09173090419  0.04524748519 -0.18350714883 -0.15368951513
+SENMATPR{3}  -0.09075056512 -0.01916705057 -0.21103122223 -0.18311878260
+SENMATPR{4}  -0.15726307802 -0.09291698816 -0.19356340534 -0.21084149629
+
+
+               SENMATPR{-2}   SENMATPR{-1}     SENMATPR      SENMATPR{1}
+F1T           0.17010787127  0.29517829915  0.18568356162  0.10328572589
+F2T          -0.04693721512  0.02185414062  0.06423401260  0.01920854999
+SENMATPR{-4}  0.42787435954  0.26205877317 -0.06193045858 -0.14916987406
+SENMATPR{-3}  0.63839846729  0.42882410688  0.26109766639 -0.06710236603
+SENMATPR{-2}  1.00000000000  0.63867728571  0.42714817139  0.26044300648
+SENMATPR{-1}  0.63867728571  1.00000000000  0.63786169350  0.42721971641
+SENMATPR      0.42714817139  0.63786169350  1.00000000000  0.63730305929
+SENMATPR{1}   0.26044300648  0.42721971641  0.63730305929  1.00000000000
+SENMATPR{2}  -0.06511081775  0.26125123156  0.42482383993  0.63616318736
+SENMATPR{3}  -0.15023162922 -0.06327209032  0.26006005684  0.42568806263
+SENMATPR{4}  -0.18062246076 -0.14885555786 -0.06365791633  0.26112128430
+
+
+                SENMATPR{2}    SENMATPR{3}    SENMATPR{4}
+F1T          -0.09173090419 -0.09075056512 -0.15726307802
+F2T           0.04524748519 -0.01916705057 -0.09291698816
+SENMATPR{-4} -0.18350714883 -0.21103122223 -0.19356340534
+SENMATPR{-3} -0.15368951513 -0.18311878260 -0.21084149629
+SENMATPR{-2} -0.06511081775 -0.15023162922 -0.18062246076
+SENMATPR{-1}  0.26125123156 -0.06327209032 -0.14885555786
+SENMATPR      0.42482383993  0.26006005684 -0.06365791633
+SENMATPR{1}   0.63616318736  0.42568806263  0.26112128430
+SENMATPR{2}   1.00000000000  0.63838538555  0.42780588421
+SENMATPR{3}   0.63838538555  1.00000000000  0.63911759962
+SENMATPR{4}   0.42780588421  0.63911759962  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.15826
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      1.0021        -0.0421
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.1206         0.2624        -0.6020         0.9990        -0.0467
+       0.5595        -0.9210         0.3316        -0.2346
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.02893
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+     -0.0296         1.0017
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.2831        -0.6593        -0.2558        -0.1012         0.6998
+      -0.3566         0.5642        -0.1721        -0.6590
+
+
+compute resc(6,1)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f1t f2t poiln{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1961:02 To 2000:03
+                 F1T            F2T         POILN{-4}      POILN{-3}
+F1T        1.00000000000  0.07152440015  0.00479232871 -0.05893266403
+F2T        0.07152440015  1.00000000000  0.09008425051  0.05273457584
+POILN{-4}  0.00479232871  0.09008425051  1.00000000000  0.23803253454
+POILN{-3} -0.05893266403  0.05273457584  0.23803253454  1.00000000000
+POILN{-2}  0.02443131285  0.01517610441 -0.08926300832  0.23809294478
+POILN{-1}  0.02031645574  0.02202237757  0.10210406124 -0.09453897192
+POILN     -0.07327878271 -0.02131060508 -0.02274304304  0.10195043260
+POILN{1}   0.00034243882  0.02419762772 -0.21817688090 -0.01993571083
+POILN{2}  -0.01166544216  0.05381979772  0.03995215166 -0.21894521624
+POILN{3}  -0.14769496508  0.01018432084  0.05783956970  0.04532700780
+POILN{4}  -0.08476303284 -0.03480095915 -0.16862817589  0.06094128591
+
+
+              POILN{-2}      POILN{-1}        POILN        POILN{1}
+F1T        0.02443131285  0.02031645574 -0.07327878271  0.00034243882
+F2T        0.01517610441  0.02202237757 -0.02131060508  0.02419762772
+POILN{-4} -0.08926300832  0.10210406124 -0.02274304304 -0.21817688090
+POILN{-3}  0.23809294478 -0.09453897192  0.10195043260 -0.01993571083
+POILN{-2}  1.00000000000  0.23963989472 -0.09453829644  0.10265423325
+POILN{-1}  0.23963989472  1.00000000000  0.24077791617 -0.08509839210
+POILN     -0.09453829644  0.24077791617  1.00000000000  0.24214006736
+POILN{1}   0.10265423325 -0.08509839210  0.24214006736  1.00000000000
+POILN{2}  -0.01994650112  0.10110207618 -0.08521735982  0.24457587822
+POILN{3}  -0.22046228126 -0.00209824561  0.10307535886 -0.09753656244
+POILN{4}   0.04583994853 -0.21249904416 -0.00152538284  0.09729721732
+
+
+              POILN{2}       POILN{3}       POILN{4}
+F1T       -0.01166544216 -0.14769496508 -0.08476303284
+F2T        0.05381979772  0.01018432084 -0.03480095915
+POILN{-4}  0.03995215166  0.05783956970 -0.16862817589
+POILN{-3} -0.21894521624  0.04532700780  0.06094128591
+POILN{-2} -0.01994650112 -0.22046228126  0.04583994853
+POILN{-1}  0.10110207618 -0.00209824561 -0.21249904416
+POILN     -0.08521735982  0.10307535886 -0.00152538284
+POILN{1}   0.24457587822 -0.09753656244  0.09729721732
+POILN{2}   1.00000000000  0.24974130052 -0.09625552714
+POILN{3}   0.24974130052  1.00000000000  0.24175643267
+POILN{4}  -0.09625552714  0.24175643267  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.03063
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      1.0026        -0.0736
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.0504        -0.2839        -0.0119         0.1186        -0.3560
+       0.0624        -0.0552        -0.7243        -0.2562
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.01532
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+  1.9179e-03         0.9999
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.6384         0.4132    -6.5739e-03         0.1911        -0.3167
+       0.3783         0.3301         0.0533        -0.1774
+
+
+compute resc(7,1)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f1t f2t poilh{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1961:02 To 2000:03
+                 F1T            F2T         POILH{-4}      POILH{-3}
+F1T        1.00000000000  0.07152440015  0.05552577320 -0.10144297642
+F2T        0.07152440015  1.00000000000  0.14049017341  0.01037209383
+POILH{-4}  0.05552577320  0.14049017341  1.00000000000  0.35962847499
+POILH{-3} -0.10144297642  0.01037209383  0.35962847499  1.00000000000
+POILH{-2} -0.09926134584 -0.04902748296  0.25602254282  0.35962847499
+POILH{-1}  0.00329099101  0.05592510313  0.14187559957  0.25602254282
+POILH     -0.15544787700  0.03279349353 -0.00167483269  0.14151076620
+POILH{1}  -0.06962825311  0.09194084230  0.05269832102  0.00268526888
+POILH{2}  -0.14431624148  0.08329892386  0.04771446031  0.05269832102
+POILH{3}  -0.19320294488 -0.07090696866 -0.03201826663  0.05744885338
+POILH{4}  -0.14261862394 -0.02741568207 -0.10075146243 -0.02685718392
+
+
+              POILH{-2}      POILH{-1}        POILH        POILH{1}
+F1T       -0.09926134584  0.00329099101 -0.15544787700 -0.06962825311
+F2T       -0.04902748296  0.05592510313  0.03279349353  0.09194084230
+POILH{-4}  0.25602254282  0.14187559957 -0.00167483269  0.05269832102
+POILH{-3}  0.35962847499  0.25602254282  0.14151076620  0.00268526888
+POILH{-2}  1.00000000000  0.35962847499  0.25569324295  0.14631436069
+POILH{-1}  0.35962847499  1.00000000000  0.35933142724  0.26085049814
+POILH      0.25569324295  0.35933142724  1.00000000000  0.36417026394
+POILH{1}   0.14631436069  0.26085049814  0.36417026394  1.00000000000
+POILH{2}   0.00268526888  0.14631436069  0.26052930551  0.36959301957
+POILH{3}   0.06253731711  0.01147457338  0.15707287769  0.25001390426
+POILH{4}   0.06315368502  0.06827307461  0.01609038412  0.14974224576
+
+
+              POILH{2}       POILH{3}       POILH{4}
+F1T       -0.14431624148 -0.19320294488 -0.14261862394
+F2T        0.08329892386 -0.07090696866 -0.02741568207
+POILH{-4}  0.04771446031 -0.03201826663 -0.10075146243
+POILH{-3}  0.05269832102  0.05744885338 -0.02685718392
+POILH{-2}  0.00268526888  0.06253731711  0.06315368502
+POILH{-1}  0.14631436069  0.01147457338  0.06827307461
+POILH      0.26052930551  0.15707287769  0.01609038412
+POILH{1}   0.36959301957  0.25001390426  0.14974224576
+POILH{2}   1.00000000000  0.38594209802  0.25680259601
+POILH{3}   0.38594209802  1.00000000000  0.37349028297
+POILH{4}   0.25680259601  0.37349028297  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.09192
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.9014         0.3733
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.4592        -0.3362        -0.3675         0.3563        -0.3639
+       0.1680        -0.1092        -0.4617        -0.2405
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.04246
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.4389        -0.9305
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+     -0.5183        -0.1431         0.3082         0.0456        -0.3457
+      -0.3207        -0.5122         0.2790        -0.1777
+
+
+compute resc(8,1)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f11 f21 cee{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1961:02 To 1983:04
+               F11            F21          CEE{-4}        CEE{-3}
+F11      1.00000000000  0.06102354127 -0.10521201947  0.02166641132
+F21      0.06102354127  1.00000000000 -0.08990008258 -0.01487412873
+CEE{-4} -0.10521201947 -0.08990008258  1.00000000000 -0.07758547998
+CEE{-3}  0.02166641132 -0.01487412873 -0.07758547998  1.00000000000
+CEE{-2}  0.04287762330 -0.07645117706 -0.03769517877 -0.08031434693
+CEE{-1} -0.03682504446 -0.00661320039  0.01414683039 -0.03927360452
+CEE      0.06680831729  0.06252065625  0.13465431731  0.01780252476
+CEE{1}   0.08699130318 -0.00845090042  0.13570358295  0.13183202703
+CEE{2}  -0.38632729528  0.00261301077  0.05399254710  0.13324295000
+CEE{3}   0.10659358127  0.08174433937 -0.21649339310  0.05381786827
+CEE{4}  -0.07247855899  0.07594026971  0.00919334248 -0.21926508851
+
+
+             CEE{-2}        CEE{-1}          CEE          CEE{1}
+F11      0.04287762330 -0.03682504446  0.06680831729  0.08699130318
+F21     -0.07645117706 -0.00661320039  0.06252065625 -0.00845090042
+CEE{-4} -0.03769517877  0.01414683039  0.13465431731  0.13570358295
+CEE{-3} -0.08031434693 -0.03927360452  0.01780252476  0.13183202703
+CEE{-2}  1.00000000000 -0.07927759700 -0.04141420103  0.02087049691
+CEE{-1} -0.07927759700  1.00000000000 -0.07929896702 -0.04415511081
+CEE     -0.04141420103 -0.07929896702  1.00000000000 -0.07338027706
+CEE{1}   0.02087049691 -0.04415511081 -0.07338027706  1.00000000000
+CEE{2}   0.13274864550  0.02196362330 -0.04687443456 -0.06860719315
+CEE{3}   0.13316807056  0.13264127462  0.02226543482 -0.04845607471
+CEE{4}   0.05562129544  0.13249017308  0.13739456486  0.00683815458
+
+
+             CEE{2}         CEE{3}         CEE{4}
+F11     -0.38632729528  0.10659358127 -0.07247855899
+F21      0.00261301077  0.08174433937  0.07594026971
+CEE{-4}  0.05399254710 -0.21649339310  0.00919334248
+CEE{-3}  0.13324295000  0.05381786827 -0.21926508851
+CEE{-2}  0.13274864550  0.13316807056  0.05562129544
+CEE{-1}  0.02196362330  0.13264127462  0.13249017308
+CEE     -0.04687443456  0.02226543482  0.13739456486
+CEE{1}  -0.06860719315 -0.04845607471  0.00683815458
+CEE{2}   1.00000000000 -0.06846118707 -0.04537467211
+CEE{3}  -0.06846118707  1.00000000000 -0.06931997662
+CEE{4}  -0.04537467211 -0.06931997662  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.18988
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      1.0017        -0.0773
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+     -0.1872         0.0986         0.2403     3.6345e-03         0.1758
+       0.1649        -0.9092         0.0780        -0.2317
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.03367
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.0162         0.9989
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+     -0.4937        -0.1454        -0.5594        -0.1785         0.3241
+       0.1088         0.1804         0.4938         0.4316
+
+
+compute nobs = 0.0 + %nobs
+compute nn = 0.0 + 2.0*nl + 2.0
+compute dffac = (nobs-1.0)/(nobs-nn)
+dis nobs
+     91.00000
+dis nn
+     10.00000
+dis dffac
+      1.11111
+compute resc(1,2)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f11 f21 gali{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1961:02 To 1983:04
+                F11            F21         GALI{-4}       GALI{-3}
+F11       1.00000000000  0.06102354127 -0.03947865319  0.11832356024
+F21       0.06102354127  1.00000000000  0.08948027910  0.04077144864
+GALI{-4} -0.03947865319  0.08948027910  1.00000000000  0.00382172965
+GALI{-3}  0.11832356024  0.04077144864  0.00382172965  1.00000000000
+GALI{-2}  0.02568576445  0.05975535141 -0.00671360961  0.00956086435
+GALI{-1} -0.10035519297 -0.01179929680 -0.12195254465 -0.02075239901
+GALI      0.15920305908  0.04749691218 -0.05523128222 -0.09968116328
+GALI{1}  -0.13899010272  0.04078927592  0.03911743129 -0.03578129744
+GALI{2}   0.14756695106 -0.01157212396 -0.04035888553  0.05308222554
+GALI{3}   0.07769064843  0.16619004664 -0.01986984104 -0.03091719932
+GALI{4}  -0.07906630844 -0.09700518311  0.13704797451 -0.01623598580
+
+
+             GALI{-2}       GALI{-1}         GALI          GALI{1}
+F11       0.02568576445 -0.10035519297  0.15920305908 -0.13899010272
+F21       0.05975535141 -0.01179929680  0.04749691218  0.04078927592
+GALI{-4} -0.00671360961 -0.12195254465 -0.05523128222  0.03911743129
+GALI{-3}  0.00956086435 -0.02075239901 -0.09968116328 -0.03578129744
+GALI{-2}  1.00000000000  0.00559718473 -0.01696581920 -0.09366632814
+GALI{-1}  0.00559718473  1.00000000000 -0.00175294712 -0.02140288591
+GALI     -0.01696581920 -0.00175294712  1.00000000000  0.00750352380
+GALI{1}  -0.09366632814 -0.02140288591  0.00750352380  1.00000000000
+GALI{2}  -0.03136650817 -0.09724323262 -0.01372659370  0.01171593985
+GALI{3}   0.05493206803 -0.03428662336 -0.09199125367 -0.00998369136
+GALI{4}  -0.02787412495  0.05619668423 -0.03312553692 -0.09473873352
+
+
+              GALI{2}        GALI{3}        GALI{4}
+F11       0.14756695106  0.07769064843 -0.07906630844
+F21      -0.01157212396  0.16619004664 -0.09700518311
+GALI{-4} -0.04035888553 -0.01986984104  0.13704797451
+GALI{-3}  0.05308222554 -0.03091719932 -0.01623598580
+GALI{-2} -0.03136650817  0.05493206803 -0.02787412495
+GALI{-1} -0.09724323262 -0.03428662336  0.05619668423
+GALI     -0.01372659370 -0.09199125367 -0.03312553692
+GALI{1}   0.01171593985 -0.00998369136 -0.09473873352
+GALI{2}   1.00000000000  0.01474368139 -0.01171349698
+GALI{3}   0.01474368139  1.00000000000  0.01483318511
+GALI{4}  -0.01171349698  0.01483318511  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.11448
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.9079         0.3674
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.0773         0.3894         0.0864        -0.2042         0.5600
+      -0.3487         0.3502         0.4384        -0.3248
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.04791
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.4236        -0.9321
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+     -0.5085         0.0146        -0.1966        -0.2212         0.0404
+      -0.4256         0.3035        -0.5734         0.3100
+
+
+compute resc(2,2)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f11 f21 cpall{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1961:02 To 1983:04
+                 F11            F21         CPALL{-4}      CPALL{-3}
+F11        1.00000000000  0.06102354127  0.14601173478  0.14770558655
+F21        0.06102354127  1.00000000000  0.03190054678 -0.05072661734
+CPALL{-4}  0.14601173478  0.03190054678  1.00000000000  0.33184107304
+CPALL{-3}  0.14770558655 -0.05072661734  0.33184107304  1.00000000000
+CPALL{-2}  0.14414079839 -0.00416688398  0.26434260294  0.32318571432
+CPALL{-1}  0.24044814985  0.00352355720  0.25543312137  0.26922079269
+CPALL      0.14488425860  0.07416648596  0.13997210734  0.26452948431
+CPALL{1}   0.13281168921 -0.05195577305 -0.18526461990  0.14371894470
+CPALL{2}  -0.16601647349  0.05940033703 -0.13003644606 -0.17597797130
+CPALL{3}  -0.00200511791  0.00121515345 -0.17254959246 -0.12212740987
+CPALL{4}  -0.15284760613  0.03042788066 -0.20148552190 -0.16836939284
+
+
+              CPALL{-2}      CPALL{-1}        CPALL        CPALL{1}
+F11        0.14414079839  0.24044814985  0.14488425860  0.13281168921
+F21       -0.00416688398  0.00352355720  0.07416648596 -0.05195577305
+CPALL{-4}  0.26434260294  0.25543312137  0.13997210734 -0.18526461990
+CPALL{-3}  0.32318571432  0.26922079269  0.26452948431  0.14371894470
+CPALL{-2}  1.00000000000  0.33300175107  0.28175055115  0.27008482086
+CPALL{-1}  0.33300175107  1.00000000000  0.33040241858  0.27897357811
+CPALL      0.28175055115  0.33040241858  1.00000000000  0.32914842365
+CPALL{1}   0.27008482086  0.27897357811  0.32914842365  1.00000000000
+CPALL{2}   0.16259755456  0.27167427946  0.27197077381  0.32437015724
+CPALL{3}  -0.16397579014  0.16237200492  0.26633357517  0.26892306982
+CPALL{4}  -0.11667848724 -0.16699490202  0.15912139250  0.26537224277
+
+
+              CPALL{2}       CPALL{3}       CPALL{4}
+F11       -0.16601647349 -0.00200511791 -0.15284760613
+F21        0.05940033703  0.00121515345  0.03042788066
+CPALL{-4} -0.13003644606 -0.17254959246 -0.20148552190
+CPALL{-3} -0.17597797130 -0.12212740987 -0.16836939284
+CPALL{-2}  0.16259755456 -0.16397579014 -0.11667848724
+CPALL{-1}  0.27167427946  0.16237200492 -0.16699490202
+CPALL      0.27197077381  0.26633357517  0.15912139250
+CPALL{1}   0.32437015724  0.26892306982  0.26537224277
+CPALL{2}   1.00000000000  0.32077564498  0.26264884533
+CPALL{3}   0.32077564498  1.00000000000  0.31655718640
+CPALL{4}   0.26264884533  0.31655718640  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.16247
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.9947        -0.1800
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.1433        -0.1204         0.1191         0.4983         0.2151
+       0.4439        -0.7556         0.0938        -0.2684
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.01879
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.1196         0.9856
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.2861        -0.5092        -0.0391         0.1676         0.8665
+      -0.4682         0.1531        -0.2245         0.0980
+
+
+compute resc(3,2)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f11 f21 cpfood{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1961:02 To 1983:04
+                  F11            F21        CPFOOD{-4}     CPFOOD{-3}
+F11         1.00000000000  0.06102354127  0.10535319696  0.03545710105
+F21         0.06102354127  1.00000000000  0.04714603600 -0.10491201358
+CPFOOD{-4}  0.10535319696  0.04714603600  1.00000000000  0.05332450322
+CPFOOD{-3}  0.03545710105 -0.10491201358  0.05332450322  1.00000000000
+CPFOOD{-2}  0.11285098705  0.07949379222  0.01191134913  0.04777396014
+CPFOOD{-1}  0.13007486925  0.06327931359  0.13802643097  0.01561607814
+CPFOOD      0.01062932522  0.00926464829  0.22651226778  0.14404742478
+CPFOOD{1}   0.03390598462 -0.14122763338 -0.12155769476  0.22418279747
+CPFOOD{2}  -0.18142888892 -0.01360753871  0.03094320252 -0.11700843387
+CPFOOD{3}   0.03436959660 -0.01865512637 -0.15981993199  0.03437274981
+CPFOOD{4}  -0.06919527794  0.07388600971 -0.11964437334 -0.15858041662
+
+
+              CPFOOD{-2}     CPFOOD{-1}       CPFOOD        CPFOOD{1}
+F11         0.11285098705  0.13007486925  0.01062932522  0.03390598462
+F21         0.07949379222  0.06327931359  0.00926464829 -0.14122763338
+CPFOOD{-4}  0.01191134913  0.13802643097  0.22651226778 -0.12155769476
+CPFOOD{-3}  0.04777396014  0.01561607814  0.14404742478  0.22418279747
+CPFOOD{-2}  1.00000000000  0.05749119456  0.02845645790  0.13814564661
+CPFOOD{-1}  0.05749119456  1.00000000000  0.05291332622  0.03038401645
+CPFOOD      0.02845645790  0.05291332622  1.00000000000  0.05778172828
+CPFOOD{1}   0.13814564661  0.03038401645  0.05778172828  1.00000000000
+CPFOOD{2}   0.23931411503  0.13485804356  0.02211856724  0.06214313920
+CPFOOD{3}  -0.11010706242  0.23602729632  0.12949130644  0.02546538461
+CPFOOD{4}   0.03640227976 -0.11623918540  0.23163791251  0.13284841977
+
+
+               CPFOOD{2}      CPFOOD{3}      CPFOOD{4}
+F11        -0.18142888892  0.03436959660 -0.06919527794
+F21        -0.01360753871 -0.01865512637  0.07388600971
+CPFOOD{-4}  0.03094320252 -0.15981993199 -0.11964437334
+CPFOOD{-3} -0.11700843387  0.03437274981 -0.15858041662
+CPFOOD{-2}  0.23931411503 -0.11010706242  0.03640227976
+CPFOOD{-1}  0.13485804356  0.23602729632 -0.11623918540
+CPFOOD      0.02211856724  0.12949130644  0.23163791251
+CPFOOD{1}   0.06214313920  0.02546538461  0.13284841977
+CPFOOD{2}   1.00000000000  0.05649350048  0.01963086848
+CPFOOD{3}   0.05649350048  1.00000000000  0.05409532277
+CPFOOD{4}   0.01963086848  0.05409532277  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.10130
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+     -0.9485        -0.2641
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+     -0.3497         0.1448        -0.5886        -0.4182         0.0438
+      -0.0232         0.7853        -0.1680         0.0854
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.04520
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+     -0.3226         0.9664
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+     -0.0185        -0.2706         0.2226         0.1862    -5.1440e-03
+      -0.7447         0.1497        -0.1668         0.5155
+
+
+compute resc(4,2)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f11 f21 cpmat{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1961:02 To 1983:04
+                 F11            F21         CPMAT{-4}      CPMAT{-3}
+F11        1.00000000000  0.06102354127  0.14183679312  0.20362087634
+F21        0.06102354127  1.00000000000  0.00581841725  0.01420972964
+CPMAT{-4}  0.14183679312  0.00581841725  1.00000000000  0.48366384576
+CPMAT{-3}  0.20362087634  0.01420972964  0.48366384576  1.00000000000
+CPMAT{-2}  0.12917350323 -0.07503099287  0.26651186154  0.47693984402
+CPMAT{-1}  0.27181318801 -0.05130248137  0.20432620867  0.26780248828
+CPMAT      0.21904474949  0.10897187744 -0.01517950442  0.20826996524
+CPMAT{1}   0.18062506362  0.04204909465 -0.22281642178 -0.00420254195
+CPMAT{2}  -0.10497338347  0.10753273937 -0.30400781786 -0.21489685317
+CPMAT{3}  -0.03344156335  0.01744912087 -0.17504447502 -0.29656887028
+CPMAT{4}  -0.18052277388 -0.01760398972 -0.09056420410 -0.16878614885
+
+
+              CPMAT{-2}      CPMAT{-1}        CPMAT        CPMAT{1}
+F11        0.12917350323  0.27181318801  0.21904474949  0.18062506362
+F21       -0.07503099287 -0.05130248137  0.10897187744  0.04204909465
+CPMAT{-4}  0.26651186154  0.20432620867 -0.01517950442 -0.22281642178
+CPMAT{-3}  0.47693984402  0.26780248828  0.20826996524 -0.00420254195
+CPMAT{-2}  1.00000000000  0.48042081984  0.26934061020  0.22082121649
+CPMAT{-1}  0.48042081984  1.00000000000  0.47824544450  0.27063332515
+CPMAT      0.26934061020  0.47824544450  1.00000000000  0.47785560669
+CPMAT{1}   0.22082121649  0.27063332515  0.47785560669  1.00000000000
+CPMAT{2}   0.00933268335  0.22417018108  0.26370317550  0.47133502070
+CPMAT{3}  -0.20335171005  0.01208200714  0.21925291359  0.25662692630
+CPMAT{4}  -0.28912258696 -0.20196910724  0.00875079962  0.21385079739
+
+
+              CPMAT{2}       CPMAT{3}       CPMAT{4}
+F11       -0.10497338347 -0.03344156335 -0.18052277388
+F21        0.10753273937  0.01744912087 -0.01760398972
+CPMAT{-4} -0.30400781786 -0.17504447502 -0.09056420410
+CPMAT{-3} -0.21489685317 -0.29656887028 -0.16878614885
+CPMAT{-2}  0.00933268335 -0.20335171005 -0.28912258696
+CPMAT{-1}  0.22417018108  0.01208200714 -0.20196910724
+CPMAT      0.26370317550  0.21925291359  0.00875079962
+CPMAT{1}   0.47133502070  0.25662692630  0.21385079739
+CPMAT{2}   1.00000000000  0.47110962009  0.25499328173
+CPMAT{3}   0.47110962009  1.00000000000  0.46921924521
+CPMAT{4}   0.25499328173  0.46921924521  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.19595
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      1.0010        -0.1016
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.1335         0.2793        -0.3403         0.5333         0.0441
+       0.6536        -0.6114         0.2714        -0.4473
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.06012
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.0406         0.9967
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.3922         0.2034        -0.5598        -0.6401         0.7461
+       0.0311         0.7368        -0.2368        -0.4127
+
+
+compute resc(5,2)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f11 f21 senmatpr{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1961:02 To 1983:04
+                    F11            F21       SENMATPR{-4}   SENMATPR{-3}
+F11           1.00000000000  0.06102354127  0.13281821398  0.19512301632
+F21           0.06102354127  1.00000000000  0.01805259428 -0.01940683295
+SENMATPR{-4}  0.13281821398  0.01805259428  1.00000000000  0.63307135242
+SENMATPR{-3}  0.19512301632 -0.01940683295  0.63307135242  1.00000000000
+SENMATPR{-2}  0.17792576371 -0.09826431505  0.42392474053  0.62642595561
+SENMATPR{-1}  0.30668070234 -0.00849558809  0.25056500160  0.42656117361
+SENMATPR      0.26785882304  0.06648392603 -0.09146502443  0.25968112123
+SENMATPR{1}   0.15124769918  0.02852220501 -0.18173404465 -0.07710097153
+SENMATPR{2}  -0.05256940263  0.09710547452 -0.23414628813 -0.16775323941
+SENMATPR{3}  -0.02097738621  0.00859454133 -0.26103277441 -0.22534276766
+SENMATPR{4}  -0.22660934152 -0.06958470930 -0.20551334111 -0.25441164238
+
+
+               SENMATPR{-2}   SENMATPR{-1}     SENMATPR      SENMATPR{1}
+F11           0.17792576371  0.30668070234  0.26785882304  0.15124769918
+F21          -0.09826431505 -0.00849558809  0.06648392603  0.02852220501
+SENMATPR{-4}  0.42392474053  0.25056500160 -0.09146502443 -0.18173404465
+SENMATPR{-3}  0.62642595561  0.42656117361  0.25968112123 -0.07710097153
+SENMATPR{-2}  1.00000000000  0.63079912081  0.43463773162  0.27821293678
+SENMATPR{-1}  0.63079912081  1.00000000000  0.63112638613  0.43928870049
+SENMATPR      0.43463773162  0.63112638613  1.00000000000  0.62993419501
+SENMATPR{1}   0.27821293678  0.43928870049  0.62993419501  1.00000000000
+SENMATPR{2}  -0.05828960920  0.28368526689  0.43481172986  0.62522777531
+SENMATPR{3}  -0.15415369452 -0.05366745829  0.27980146111  0.43142124260
+SENMATPR{4}  -0.21511196210 -0.15073389850 -0.05705537450  0.27634496679
+
+
+                SENMATPR{2}    SENMATPR{3}    SENMATPR{4}
+F11          -0.05256940263 -0.02097738621 -0.22660934152
+F21           0.09710547452  0.00859454133 -0.06958470930
+SENMATPR{-4} -0.23414628813 -0.26103277441 -0.20551334111
+SENMATPR{-3} -0.16775323941 -0.22534276766 -0.25441164238
+SENMATPR{-2} -0.05828960920 -0.15415369452 -0.21511196210
+SENMATPR{-1}  0.28368526689 -0.05366745829 -0.15073389850
+SENMATPR      0.43481172986  0.27980146111 -0.05705537450
+SENMATPR{1}   0.62522777531  0.43142124260  0.27634496679
+SENMATPR{2}   1.00000000000  0.62553743404  0.43089691648
+SENMATPR{3}   0.62553743404  1.00000000000  0.62556989461
+SENMATPR{4}   0.43089691648  0.62556989461  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.21533
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.9971         0.0368
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.1708         0.2186        -0.5852         0.7364         0.1424
+       0.5153        -0.7685         0.5829        -0.5844
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.05499
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+     -0.0978         1.0012
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.5582        -0.0681        -0.7196        -0.5156         0.6444
+      -0.0715         0.8390        -0.3862        -0.4011
+
+
+compute resc(6,2)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f11 f21 poiln{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1961:02 To 1983:04
+                 F11            F21         POILN{-4}      POILN{-3}
+F11        1.00000000000  0.06102354127  0.11802089261 -0.16889380905
+F21        0.06102354127  1.00000000000  0.09834412282 -0.04635702375
+POILN{-4}  0.11802089261  0.09834412282  1.00000000000  0.42394062510
+POILN{-3} -0.16889380905 -0.04635702375  0.42394062510  1.00000000000
+POILN{-2} -0.07103425844 -0.05113441883  0.27098158283  0.42297021786
+POILN{-1}  0.09103412928 -0.08578533606  0.18205890018  0.26976716670
+POILN     -0.21484572209 -0.08107029430  0.15779603973  0.18053432566
+POILN{1}  -0.04644548566 -0.03194029020  0.16960162221  0.15659654816
+POILN{2}  -0.09248539814 -0.03470013820  0.16098973888  0.16799755069
+POILN{3}  -0.25625086487 -0.20042870049  0.03169290825  0.15633453649
+POILN{4}  -0.16158806487 -0.09593644792 -0.16865158255  0.02366899487
+
+
+              POILN{-2}      POILN{-1}        POILN        POILN{1}
+F11       -0.07103425844  0.09103412928 -0.21484572209 -0.04644548566
+F21       -0.05113441883 -0.08578533606 -0.08107029430 -0.03194029020
+POILN{-4}  0.27098158283  0.18205890018  0.15779603973  0.16960162221
+POILN{-3}  0.42297021786  0.26976716670  0.18053432566  0.15659654816
+POILN{-2}  1.00000000000  0.42268082427  0.26915617292  0.18028308023
+POILN{-1}  0.42268082427  1.00000000000  0.42222428396  0.26899375245
+POILN      0.26915617292  0.42222428396  1.00000000000  0.42185337134
+POILN{1}   0.18028308023  0.26899375245  0.42185337134  1.00000000000
+POILN{2}   0.15608972725  0.17987126857  0.26837939774  0.42168277482
+POILN{3}   0.16587968748  0.15410273075  0.17794979430  0.26714418384
+POILN{4}   0.15313238549  0.16300202187  0.15128495204  0.17565512611
+
+
+              POILN{2}       POILN{3}       POILN{4}
+F11       -0.09248539814 -0.25625086487 -0.16158806487
+F21       -0.03470013820 -0.20042870049 -0.09593644792
+POILN{-4}  0.16098973888  0.03169290825 -0.16865158255
+POILN{-3}  0.16799755069  0.15633453649  0.02366899487
+POILN{-2}  0.15608972725  0.16587968748  0.15313238549
+POILN{-1}  0.17987126857  0.15410273075  0.16300202187
+POILN      0.26837939774  0.17794979430  0.15128495204
+POILN{1}   0.42168277482  0.26714418384  0.17565512611
+POILN{2}   1.00000000000  0.42052988847  0.26479097087
+POILN{3}   0.42052988847  1.00000000000  0.41472177474
+POILN{4}   0.26479097087  0.41472177474  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.24078
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.9203         0.3391
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.4950        -0.4983        -0.0697         0.4840        -0.6087
+       0.1500         0.0833        -0.5590        -0.0668
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.03181
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.3960        -0.9427
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+     -0.2729        -0.2347        -0.0456         0.9102        -0.3707
+       0.0264        -0.2239         0.6331        -0.1853
+
+
+compute resc(7,2)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f11 f21 poilh{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1961:02 To 1983:04
+                 F11            F21         POILH{-4}      POILH{-3}
+F11        1.00000000000  0.06102354127  0.14855855291 -0.15130687223
+F21        0.06102354127  1.00000000000  0.10952001236 -0.07079489660
+POILH{-4}  0.14855855291  0.10952001236  1.00000000000  0.38105621184
+POILH{-3} -0.15130687223 -0.07079489660  0.38105621184  1.00000000000
+POILH{-2} -0.13007517149 -0.04842297846  0.32878480531  0.38105621184
+POILH{-1}  0.05367937971 -0.04474544231  0.17283565778  0.32878480531
+POILH     -0.23267813277 -0.04305203422  0.09593343000  0.17205679334
+POILH{1}  -0.08040778586 -0.02943533602  0.15417637519  0.09593343000
+POILH{2}  -0.14287464387 -0.03792794769  0.11517237594  0.15417637519
+POILH{3}  -0.23238867080 -0.22859691816  0.02080823408  0.11517237594
+POILH{4}  -0.15430357293 -0.13369388286 -0.06160001948  0.02080823408
+
+
+              POILH{-2}      POILH{-1}        POILH        POILH{1}
+F11       -0.13007517149  0.05367937971 -0.23267813277 -0.08040778586
+F21       -0.04842297846 -0.04474544231 -0.04305203422 -0.02943533602
+POILH{-4}  0.32878480531  0.17283565778  0.09593343000  0.15417637519
+POILH{-3}  0.38105621184  0.32878480531  0.17205679334  0.09593343000
+POILH{-2}  1.00000000000  0.38105621184  0.32811706240  0.17205679334
+POILH{-1}  0.38105621184  1.00000000000  0.38042571491  0.32811706240
+POILH      0.32811706240  0.38042571491  1.00000000000  0.37978990693
+POILH{1}   0.17205679334  0.32811706240  0.37978990693  1.00000000000
+POILH{2}   0.09593343000  0.17205679334  0.32744398190  0.37978990693
+POILH{3}   0.15417637519  0.09593343000  0.17127251212  0.32744398190
+POILH{4}   0.11517237594  0.15417637519  0.09509490710  0.17127251212
+
+
+              POILH{2}       POILH{3}       POILH{4}
+F11       -0.14287464387 -0.23238867080 -0.15430357293
+F21       -0.03792794769 -0.22859691816 -0.13369388286
+POILH{-4}  0.11517237594  0.02080823408 -0.06160001948
+POILH{-3}  0.15417637519  0.11517237594  0.02080823408
+POILH{-2}  0.09593343000  0.15417637519  0.11517237594
+POILH{-1}  0.17205679334  0.09593343000  0.15417637519
+POILH      0.32744398190  0.17127251212  0.09509490710
+POILH{1}   0.37978990693  0.32744398190  0.17127251212
+POILH{2}   1.00000000000  0.37978990693  0.32744398190
+POILH{3}   0.37978990693  1.00000000000  0.37978990693
+POILH{4}   0.32744398190  0.37978990693  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.23881
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.8778         0.4284
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.5778        -0.4891        -0.2120         0.4281        -0.4443
+       0.0190         0.0391        -0.4542        -0.1915
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.03332
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.4829        -0.9057
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+     -0.0606        -0.1143        -0.1994         0.7277        -0.5477
+      -0.1724        -0.3327         0.7439         0.0726
+
+
+compute resc(8,2)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f12 f22 cee{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1984:01 To 2000:03
+               F12            F22          CEE{-4}        CEE{-3}
+F12      1.00000000000 -0.04874533741  0.08492815996  0.02155191094
+F22     -0.04874533741  1.00000000000  0.01304391420  0.09896587371
+CEE{-4}  0.08492815996  0.01304391420  1.00000000000  0.29633404538
+CEE{-3}  0.02155191094  0.09896587371  0.29633404538  1.00000000000
+CEE{-2} -0.11210001073  0.02513887148  0.06054560072  0.22711459723
+CEE{-1}  0.17913308894 -0.01216128008  0.00580579814 -0.00602795738
+CEE      0.24964843204  0.14593150019 -0.11310237108  0.02389434245
+CEE{1}   0.04366267721  0.04446668341  0.06798227802 -0.08727342829
+CEE{2}  -0.05022135607  0.34915333240  0.02724777608  0.07919022828
+CEE{3}   0.09939618450  0.03604990204 -0.13997917942  0.05019338184
+CEE{4}   0.00782748017  0.01379733034 -0.15995348373 -0.11274437648
+
+
+             CEE{-2}        CEE{-1}          CEE          CEE{1}
+F12     -0.11210001073  0.17913308894  0.24964843204  0.04366267721
+F22      0.02513887148 -0.01216128008  0.14593150019  0.04446668341
+CEE{-4}  0.06054560072  0.00580579814 -0.11310237108  0.06798227802
+CEE{-3}  0.22711459723 -0.00602795738  0.02389434245 -0.08727342829
+CEE{-2}  1.00000000000  0.15362767803  0.02157475465  0.03250245402
+CEE{-1}  0.15362767803  1.00000000000  0.17060122175  0.05535811976
+CEE      0.02157475465  0.17060122175  1.00000000000  0.10453938872
+CEE{1}   0.03250245402  0.05535811976  0.10453938872  1.00000000000
+CEE{2}  -0.07911574295  0.03976858080  0.05850899167  0.07124998520
+CEE{3}   0.11238103196 -0.06007865644  0.03140365824  0.05987645179
+CEE{4}   0.08145524467  0.15024279559 -0.09111826221  0.12105814514
+
+
+             CEE{2}         CEE{3}         CEE{4}
+F12     -0.05022135607  0.09939618450  0.00782748017
+F22      0.34915333240  0.03604990204  0.01379733034
+CEE{-4}  0.02724777608 -0.13997917942 -0.15995348373
+CEE{-3}  0.07919022828  0.05019338184 -0.11274437648
+CEE{-2} -0.07911574295  0.11238103196  0.08145524467
+CEE{-1}  0.03976858080 -0.06007865644  0.15024279559
+CEE      0.05850899167  0.03140365824 -0.09111826221
+CEE{1}   0.07124998520  0.05987645179  0.12105814514
+CEE{2}   1.00000000000  0.06736507685  0.04288777076
+CEE{3}   0.06736507685  1.00000000000  0.06440940526
+CEE{4}   0.04288777076  0.06440940526  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.15700
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.7010         0.7481
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.2604         0.1545        -0.2479         0.1923         0.6890
+       0.0207         0.4602         0.2508         0.1147
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.13700
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.7148        -0.6654
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.2819        -0.0721        -0.4340         0.4383         0.2317
+      -0.0195        -0.8117         0.2916         0.0363
+
+
+compute nobs = 0.0 + %nobs
+compute nn = 0.0 + 2.0*nl + 2.0
+compute dffac = (nobs-1.0)/(nobs-nn)
+dis nobs
+     67.00000
+dis nn
+     10.00000
+dis dffac
+      1.15789
+compute resc(1,3)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f12 f22 gali{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1984:01 To 2000:03
+                F12            F22         GALI{-4}       GALI{-3}
+F12       1.00000000000 -0.04874533741  0.29294730802  0.03875312492
+F22      -0.04874533741  1.00000000000  0.23304616960 -0.05037247603
+GALI{-4}  0.29294730802  0.23304616960  1.00000000000 -0.10437885877
+GALI{-3}  0.03875312492 -0.05037247603 -0.10437885877  1.00000000000
+GALI{-2} -0.22150709579  0.15546125518 -0.05047683451 -0.08736234670
+GALI{-1}  0.21475885697 -0.07103737525  0.16499824238 -0.04111021436
+GALI     -0.03576122216  0.19508884244  0.00564554506  0.17692279663
+GALI{1}  -0.10845986060 -0.02132386940  0.05181900846  0.02862221024
+GALI{2}   0.01740230290 -0.05030576559  0.01843376667  0.07949501513
+GALI{3}   0.04219174279 -0.08727153902  0.11858256928  0.00294001064
+GALI{4}   0.06934163769 -0.10150498489 -0.12490471864  0.14406905276
+
+
+             GALI{-2}       GALI{-1}         GALI          GALI{1}
+F12      -0.22150709579  0.21475885697 -0.03576122216 -0.10845986060
+F22       0.15546125518 -0.07103737525  0.19508884244 -0.02132386940
+GALI{-4} -0.05047683451  0.16499824238  0.00564554506  0.05181900846
+GALI{-3} -0.08736234670 -0.04111021436  0.17692279663  0.02862221024
+GALI{-2}  1.00000000000 -0.08673471643 -0.04345641644  0.15933197172
+GALI{-1} -0.08673471643  1.00000000000 -0.08808385525 -0.05517994445
+GALI     -0.04345641644 -0.08808385525  1.00000000000 -0.10193361041
+GALI{1}   0.15933197172 -0.05517994445 -0.10193361041  1.00000000000
+GALI{2}   0.01124696329  0.15240572471 -0.06815332341 -0.13953423086
+GALI{3}   0.09041316046  0.01703148240  0.16060210013 -0.04922103742
+GALI{4}  -0.01868856336  0.07990580599  0.00430313364  0.13467396865
+
+
+              GALI{2}        GALI{3}        GALI{4}
+F12       0.01740230290  0.04219174279  0.06934163769
+F22      -0.05030576559 -0.08727153902 -0.10150498489
+GALI{-4}  0.01843376667  0.11858256928 -0.12490471864
+GALI{-3}  0.07949501513  0.00294001064  0.14406905276
+GALI{-2}  0.01124696329  0.09041316046 -0.01868856336
+GALI{-1}  0.15240572471  0.01703148240  0.07990580599
+GALI     -0.06815332341  0.16060210013  0.00430313364
+GALI{1}  -0.13953423086 -0.04922103742  0.13467396865
+GALI{2}   1.00000000000 -0.12122846893 -0.08565992321
+GALI{3}  -0.12122846893  1.00000000000 -0.10307753333
+GALI{4}  -0.08565992321 -0.10307753333  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.18612
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.7948         0.6469
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.9190         0.0662        -0.0313         0.1598         0.2194
+      -0.2843        -0.1350        -0.2205         0.0705
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.16131
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.6089        -0.7642
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+     -0.0792         0.1461        -0.6400         0.3299        -0.5166
+      -0.0612         0.1001         0.4133         0.2906
+
+
+compute resc(2,3)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f12 f22 cpall{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1984:01 To 2000:04
+                 F12            F22         CPALL{-4}      CPALL{-3}
+F12        1.00000000000 -0.04645302975  0.11630847199 -0.12229780670
+F22       -0.04645302975  1.00000000000 -0.07718251435 -0.20044614498
+CPALL{-4}  0.11630847199 -0.07718251435  1.00000000000  0.25403363391
+CPALL{-3} -0.12229780670 -0.20044614498  0.25403363391  1.00000000000
+CPALL{-2}  0.10166203764  0.08774301097  0.20374864746  0.30029205075
+CPALL{-1}  0.15260237345  0.06049794015  0.25778157874  0.22390001120
+CPALL     -0.13045011102  0.03168335700  0.05413641262  0.26295730837
+CPALL{1}  -0.03614789530 -0.12345779807  0.16128780185  0.06130405044
+CPALL{2}  -0.03685617959 -0.09803388640 -0.09641175064  0.10262618434
+CPALL{3}  -0.00884467974 -0.11665363619 -0.10760069906 -0.09695160499
+CPALL{4}  -0.05477631921 -0.10114378774 -0.12311746405 -0.14851765365
+
+
+              CPALL{-2}      CPALL{-1}        CPALL        CPALL{1}
+F12        0.10166203764  0.15260237345 -0.13045011102 -0.03614789530
+F22        0.08774301097  0.06049794015  0.03168335700 -0.12345779807
+CPALL{-4}  0.20374864746  0.25778157874  0.05413641262  0.16128780185
+CPALL{-3}  0.30029205075  0.22390001120  0.26295730837  0.06130405044
+CPALL{-2}  1.00000000000  0.27212256634  0.18628562859  0.23822713810
+CPALL{-1}  0.27212256634  1.00000000000  0.28247252595  0.19227793116
+CPALL      0.18628562859  0.28247252595  1.00000000000  0.29231590049
+CPALL{1}   0.23822713810  0.19227793116  0.29231590049  1.00000000000
+CPALL{2}   0.03470880059  0.26704875301  0.22835061228  0.31510545018
+CPALL{3}   0.06674327048  0.04801124749  0.28595239925  0.23867483414
+CPALL{4}  -0.11065130832  0.08519549450  0.07130420558  0.29965538447
+
+
+              CPALL{2}       CPALL{3}       CPALL{4}
+F12       -0.03685617959 -0.00884467974 -0.05477631921
+F22       -0.09803388640 -0.11665363619 -0.10114378774
+CPALL{-4} -0.09641175064 -0.10760069906 -0.12311746405
+CPALL{-3}  0.10262618434 -0.09695160499 -0.14851765365
+CPALL{-2}  0.03470880059  0.06674327048 -0.11065130832
+CPALL{-1}  0.26704875301  0.04801124749  0.08519549450
+CPALL      0.22835061228  0.28595239925  0.07130420558
+CPALL{1}   0.31510545018  0.23867483414  0.29965538447
+CPALL{2}   1.00000000000  0.35089760623  0.24878120489
+CPALL{3}   0.35089760623  1.00000000000  0.37055489759
+CPALL{4}   0.24878120489  0.37055489759  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.18442
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+     -0.6192        -0.8145
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+ -6.8828e-03         0.8504        -0.4996        -0.4845        -0.0546
+       0.3299         0.0861         0.2092         0.1884
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.06000
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.7866        -0.5820
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.5022         0.1375        -0.0567         0.3858        -0.8561
+       0.1684         0.0259         0.5281        -0.0840
+
+
+compute resc(3,3)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f12 f22 cpfood{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1984:01 To 2000:04
+                  F12            F22        CPFOOD{-4}     CPFOOD{-3}
+F12         1.00000000000 -0.04645302975  0.05087965165 -0.10288137369
+F22        -0.04645302975  1.00000000000 -0.05606642289 -0.12260897371
+CPFOOD{-4}  0.05087965165 -0.05606642289  1.00000000000  0.00405473889
+CPFOOD{-3} -0.10288137369 -0.12260897371  0.00405473889  1.00000000000
+CPFOOD{-2} -0.00460678632 -0.03067422069 -0.00317617420  0.08388086026
+CPFOOD{-1}  0.08674905301  0.03552824010  0.18445071001  0.05714990627
+CPFOOD     -0.13045220927  0.01002547611 -0.11341285088  0.23053013128
+CPFOOD{1}  -0.09268906831 -0.16347532624  0.08313579611 -0.07171759663
+CPFOOD{2}  -0.03183850965  0.00797000450 -0.15662583204  0.01734207975
+CPFOOD{3}   0.08027409903 -0.14690642286 -0.07584052987 -0.12079598918
+CPFOOD{4}  -0.01310111201 -0.03102342701 -0.00676473948 -0.09967470216
+
+
+              CPFOOD{-2}     CPFOOD{-1}       CPFOOD        CPFOOD{1}
+F12        -0.00460678632  0.08674905301 -0.13045220927 -0.09268906831
+F22        -0.03067422069  0.03552824010  0.01002547611 -0.16347532624
+CPFOOD{-4} -0.00317617420  0.18445071001 -0.11341285088  0.08313579611
+CPFOOD{-3}  0.08388086026  0.05714990627  0.23053013128 -0.07171759663
+CPFOOD{-2}  1.00000000000  0.01026993242 -0.01144978071  0.20858697623
+CPFOOD{-1}  0.01026993242  1.00000000000  0.01019401416 -0.05132052148
+CPFOOD     -0.01144978071  0.01019401416  1.00000000000 -0.02257550137
+CPFOOD{1}   0.20858697623 -0.05132052148 -0.02257550137  1.00000000000
+CPFOOD{2}  -0.05849540584  0.28586970630  0.02286096036 -0.00314867619
+CPFOOD{3}  -0.04226846825 -0.07056989944  0.28916893499 -0.00726632357
+CPFOOD{4}  -0.12186729328 -0.01787914967 -0.04448421180  0.29606202657
+
+
+               CPFOOD{2}      CPFOOD{3}      CPFOOD{4}
+F12        -0.03183850965  0.08027409903 -0.01310111201
+F22         0.00797000450 -0.14690642286 -0.03102342701
+CPFOOD{-4} -0.15662583204 -0.07584052987 -0.00676473948
+CPFOOD{-3}  0.01734207975 -0.12079598918 -0.09967470216
+CPFOOD{-2} -0.05849540584 -0.04226846825 -0.12186729328
+CPFOOD{-1}  0.28586970630 -0.07056989944 -0.01787914967
+CPFOOD      0.02286096036  0.28916893499 -0.04448421180
+CPFOOD{1}  -0.00314867619 -0.00726632357  0.29606202657
+CPFOOD{2}   1.00000000000  0.05792854391 -0.00154357742
+CPFOOD{3}   0.05792854391  1.00000000000  0.07831056618
+CPFOOD{4}  -0.00154357742  0.07831056618  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.08883
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+     -0.3118        -0.9648
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.1327         0.6665        -0.0819        -0.2081        -0.1740
+       0.6950         0.0471         0.5234        -0.0867
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.05654
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.9513        -0.2672
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.1433        -0.0595         0.0615         0.4050        -0.7230
+      -0.1949        -0.2524         0.7466        -0.0411
+
+
+compute resc(4,3)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f12 f22 cpmat{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1984:01 To 2000:04
+                 F12            F22         CPMAT{-4}      CPMAT{-3}
+F12        1.00000000000 -0.04645302975  0.12735904828 -0.09851761066
+F22       -0.04645302975  1.00000000000 -0.08436312331 -0.18688913956
+CPMAT{-4}  0.12735904828 -0.08436312331  1.00000000000  0.48163581125
+CPMAT{-3} -0.09851761066 -0.18688913956  0.48163581125  1.00000000000
+CPMAT{-2}  0.16012373633  0.15539385578  0.25649215224  0.48250052969
+CPMAT{-1}  0.15965165327  0.05841889967  0.19926155293  0.24355164947
+CPMAT     -0.10419239798  0.03552385704 -0.01057498727  0.18118437122
+CPMAT{1}   0.02424536548 -0.05138918368 -0.02712609304 -0.04180072258
+CPMAT{2}  -0.02826602510 -0.14959601450 -0.04586301907 -0.05288888152
+CPMAT{3}  -0.07105675395 -0.05467937160 -0.08568742374 -0.06888346165
+CPMAT{4}  -0.06085068367 -0.12784364299 -0.09008572770 -0.11486675527
+
+
+              CPMAT{-2}      CPMAT{-1}        CPMAT        CPMAT{1}
+F12        0.16012373633  0.15965165327 -0.10419239798  0.02424536548
+F22        0.15539385578  0.05841889967  0.03552385704 -0.05138918368
+CPMAT{-4}  0.25649215224  0.19926155293 -0.01057498727 -0.02712609304
+CPMAT{-3}  0.48250052969  0.24355164947  0.18118437122 -0.04180072258
+CPMAT{-2}  1.00000000000  0.47155919202  0.22726764666  0.15114067715
+CPMAT{-1}  0.47155919202  1.00000000000  0.47116535513  0.22798412878
+CPMAT      0.22726764666  0.47116535513  1.00000000000  0.47619031545
+CPMAT{1}   0.15114067715  0.22798412878  0.47619031545  1.00000000000
+CPMAT{2}  -0.06192726581  0.15226837275  0.23500423734  0.48760262254
+CPMAT{3}  -0.07215604348 -0.05770300416  0.16151175425  0.25437974791
+CPMAT{4}  -0.08905036016 -0.07190353147 -0.05061423872  0.17673202331
+
+
+              CPMAT{2}       CPMAT{3}       CPMAT{4}
+F12       -0.02826602510 -0.07105675395 -0.06085068367
+F22       -0.14959601450 -0.05467937160 -0.12784364299
+CPMAT{-4} -0.04586301907 -0.08568742374 -0.09008572770
+CPMAT{-3} -0.05288888152 -0.06888346165 -0.11486675527
+CPMAT{-2} -0.06192726581 -0.07215604348 -0.08905036016
+CPMAT{-1}  0.15226837275 -0.05770300416 -0.07190353147
+CPMAT      0.23500423734  0.16151175425 -0.05061423872
+CPMAT{1}   0.48760262254  0.25437974791  0.17673202331
+CPMAT{2}   1.00000000000  0.49698455013  0.26369915956
+CPMAT{3}   0.49698455013  1.00000000000  0.50476777828
+CPMAT{4}   0.26369915956  0.50476777828  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.24359
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+     -0.6875        -0.7588
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+     -0.2464         0.9840        -0.7692        -0.2502         0.1644
+       0.0451         0.2332        -0.1442         0.2973
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.06398
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.7277        -0.6529
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.4813         0.1408        -0.2484         0.5564        -0.8498
+       0.4211         0.2803        -0.1718         0.1277
+
+
+compute resc(5,3)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f12 f22 senmatpr{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1984:01 To 2000:03
+                    F12            F22       SENMATPR{-4}   SENMATPR{-3}
+F12           1.00000000000 -0.04874533741  0.13779885884  0.05268064616
+F22          -0.04874533741  1.00000000000 -0.03868277096 -0.16699864747
+SENMATPR{-4}  0.13779885884 -0.03868277096  1.00000000000  0.62293632598
+SENMATPR{-3}  0.05268064616 -0.16699864747  0.62293632598  1.00000000000
+SENMATPR{-2}  0.19008847717  0.11032594676  0.39130252633  0.63554463844
+SENMATPR{-1}  0.17775011676  0.07790621777  0.23067776125  0.38705915681
+SENMATPR     -0.02627150129  0.06846131540 -0.07246416474  0.20745961967
+SENMATPR{1}   0.06122636940 -0.02017906331 -0.14773690840 -0.11412529751
+SENMATPR{2}  -0.09394702858 -0.07710277874 -0.13219655325 -0.18400232307
+SENMATPR{3}  -0.06042954697 -0.05924342341 -0.15572178321 -0.14666165913
+SENMATPR{4}  -0.01997972453 -0.14107786061 -0.21467512870 -0.16740444714
+
+
+               SENMATPR{-2}   SENMATPR{-1}     SENMATPR      SENMATPR{1}
+F12           0.19008847717  0.17775011676 -0.02627150129  0.06122636940
+F22           0.11032594676  0.07790621777  0.06846131540 -0.02017906331
+SENMATPR{-4}  0.39130252633  0.23067776125 -0.07246416474 -0.14773690840
+SENMATPR{-3}  0.63554463844  0.38705915681  0.20745961967 -0.11412529751
+SENMATPR{-2}  1.00000000000  0.62539036203  0.36435630057  0.17217108833
+SENMATPR{-1}  0.62539036203  1.00000000000  0.62449876566  0.36370425979
+SENMATPR      0.36435630057  0.62449876566  1.00000000000  0.63139692335
+SENMATPR{1}   0.17217108833  0.36370425979  0.63139692335  1.00000000000
+SENMATPR{2}  -0.13814576176  0.17519377281  0.37650593302  0.64422849218
+SENMATPR{3}  -0.19744391907 -0.13332915598  0.18801646594  0.39404112527
+SENMATPR{4}  -0.15859521667 -0.19310909718 -0.11844760234  0.20736417623
+
+
+                SENMATPR{2}    SENMATPR{3}    SENMATPR{4}
+F12          -0.09394702858 -0.06042954697 -0.01997972453
+F22          -0.07710277874 -0.05924342341 -0.14107786061
+SENMATPR{-4} -0.13219655325 -0.15572178321 -0.21467512870
+SENMATPR{-3} -0.18400232307 -0.14666165913 -0.16740444714
+SENMATPR{-2} -0.13814576176 -0.19744391907 -0.15859521667
+SENMATPR{-1}  0.17519377281 -0.13332915598 -0.19310909718
+SENMATPR      0.37650593302  0.18801646594 -0.11844760234
+SENMATPR{1}   0.64422849218  0.39404112527  0.20736417623
+SENMATPR{2}   1.00000000000  0.65403111475  0.40731446008
+SENMATPR{3}   0.65403111475  1.00000000000  0.65832288633
+SENMATPR{4}   0.40731446008  0.65832288633  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.20636
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.5548         0.8595
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.3811        -1.2758         0.8823         0.3752        -0.0212
+      -0.1470        -0.4812         0.4915        -0.3103
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.09249
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.8334        -0.5135
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.1115         0.5845        -0.4232         0.8434        -1.0970
+       1.0775        -0.6773         0.1378         0.2327
+
+
+compute resc(6,3)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f12 f22 poiln{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1984:01 To 2000:03
+                 F12            F22         POILN{-4}      POILN{-3}
+F12        1.00000000000 -0.04874533741 -0.00231601267  0.09648410610
+F22       -0.04874533741  1.00000000000  0.01928224066  0.05156818266
+POILN{-4} -0.00231601267  0.01928224066  1.00000000000  0.19584970572
+POILN{-3}  0.09648410610  0.05156818266  0.19584970572  1.00000000000
+POILN{-2} -0.05826317366  0.07130711860 -0.16590945067  0.19610022165
+POILN{-1}  0.06308923966  0.11522547471  0.07726570692 -0.17095035688
+POILN      0.12400883527 -0.15907812648 -0.06660612078  0.07734441457
+POILN{1}  -0.02948609465 -0.05183413537 -0.30203316115 -0.06426171249
+POILN{2}   0.08735123394  0.07997586972  0.00608368682 -0.30240140749
+POILN{3}  -0.03577976807  0.14263833883  0.04769153305  0.01093834834
+POILN{4}  -0.10704893217 -0.11849460879 -0.18913630207  0.05113356847
+
+
+              POILN{-2}      POILN{-1}        POILN        POILN{1}
+F12       -0.05826317366  0.06308923966  0.12400883527 -0.02948609465
+F22        0.07130711860  0.11522547471 -0.15907812648 -0.05183413537
+POILN{-4} -0.16590945067  0.07726570692 -0.06660612078 -0.30203316115
+POILN{-3}  0.19610022165 -0.17095035688  0.07734441457 -0.06426171249
+POILN{-2}  1.00000000000  0.19863678384 -0.17096999803  0.07707313015
+POILN{-1}  0.19863678384  1.00000000000  0.20063371038 -0.16039547566
+POILN     -0.17096999803  0.20063371038  1.00000000000  0.20137402762
+POILN{1}   0.07707313015 -0.16039547566  0.20137402762  1.00000000000
+POILN{2}  -0.06419811823  0.07639171056 -0.16038114895  0.20336282674
+POILN{3}  -0.30749453784 -0.04402672523  0.07701609152 -0.17950105742
+POILN{4}   0.01034626372 -0.29822852100 -0.04448359108  0.06773489268
+
+
+              POILN{2}       POILN{3}       POILN{4}
+F12        0.08735123394 -0.03577976807 -0.10704893217
+F22        0.07997586972  0.14263833883 -0.11849460879
+POILN{-4}  0.00608368682  0.04769153305 -0.18913630207
+POILN{-3} -0.30240140749  0.01093834834  0.05113356847
+POILN{-2} -0.06419811823 -0.30749453784  0.01034626372
+POILN{-1}  0.07639171056 -0.04402672523 -0.29822852100
+POILN     -0.16038114895  0.07701609152 -0.04448359108
+POILN{1}   0.20336282674 -0.17950105742  0.06773489268
+POILN{2}   1.00000000000  0.20779210270 -0.17926168058
+POILN{3}   0.20779210270  1.00000000000  0.19540811376
+POILN{4}  -0.17926168058  0.19540811376  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.10694
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.1040        -0.9895
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.0899        -0.2349        -0.1570        -0.4459         0.7537
+      -0.2402         0.1379        -0.7282         0.4390
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.07493
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.9958         0.1525
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+     -0.3553         0.7466        -0.3917         0.2453         0.3755
+      -0.3941         0.7165        -0.3527        -0.2428
+
+
+compute resc(7,3)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f12 f22 poilh{-nl to nl}
+
+Correlation Matrix
+Quarterly Data From 1984:01 To 2000:03
+                 F12            F22         POILH{-4}      POILH{-3}
+F12        1.00000000000 -0.04874533741 -0.02033748421  0.15139209887
+F22       -0.04874533741  1.00000000000  0.12434417317  0.06727378085
+POILH{-4} -0.02033748421  0.12434417317  1.00000000000  0.33370699600
+POILH{-3}  0.15139209887  0.06727378085  0.33370699600  1.00000000000
+POILH{-2} -0.01246174506 -0.11340545273  0.17105835719  0.33370699600
+POILH{-1}  0.09052413107  0.15116896390  0.10456617852  0.17105835719
+POILH      0.00356994277  0.05267349184 -0.11546928333  0.10478088233
+POILH{1}  -0.04289736000  0.21638746807 -0.06539474435 -0.10600285982
+POILH{2}   0.13408213045  0.16012152719 -0.03120441829 -0.06539474435
+POILH{3}   0.07415267395  0.04505412427 -0.09553375090 -0.01180742535
+POILH{4}  -0.05372307175 -0.04546245401 -0.14768214238 -0.08400583018
+
+
+              POILH{-2}      POILH{-1}        POILH        POILH{1}
+F12       -0.01246174506  0.09052413107  0.00356994277 -0.04289736000
+F22       -0.11340545273  0.15116896390  0.05267349184  0.21638746807
+POILH{-4}  0.17105835719  0.10456617852 -0.11546928333 -0.06539474435
+POILH{-3}  0.33370699600  0.17105835719  0.10478088233 -0.10600285982
+POILH{-2}  1.00000000000  0.33370699600  0.17125778738  0.11558486337
+POILH{-1}  0.33370699600  1.00000000000  0.33386906490  0.18246547610
+POILH      0.17125778738  0.33386906490  1.00000000000  0.34545889775
+POILH{1}   0.11558486337  0.18246547610  0.34545889775  1.00000000000
+POILH{2}  -0.10600285982  0.11558486337  0.18265215375  0.35729294122
+POILH{3}  -0.04759090320 -0.09009121741  0.14045808625  0.15658095629
+POILH{4}   0.00091557123 -0.03537866558 -0.07921922351  0.12426685655
+
+
+              POILH{2}       POILH{3}       POILH{4}
+F12        0.13408213045  0.07415267395 -0.05372307175
+F22        0.16012152719  0.04505412427 -0.04546245401
+POILH{-4} -0.03120441829 -0.09553375090 -0.14768214238
+POILH{-3} -0.06539474435 -0.01180742535 -0.08400583018
+POILH{-2} -0.10600285982 -0.04759090320  0.00091557123
+POILH{-1}  0.11558486337 -0.09009121741 -0.03537866558
+POILH      0.18265215375  0.14045808625 -0.07921922351
+POILH{1}   0.35729294122  0.15658095629  0.12426685655
+POILH{2}   1.00000000000  0.39390758622  0.17116029856
+POILH{3}   0.39390758622  1.00000000000  0.36541522771
+POILH{4}   0.17116029856  0.36541522771  1.00000000000
+
+
+@cancor k1 k2 %cmom ccor
+
+         CANONICAL CORRELATION 1
+SQUARED CORRELATION COEFFICIENT =        0.15802
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.4721         0.9048
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+      0.1369         0.4694        -0.6009         0.5265        -0.2413
+       0.4597         0.2920         0.1770        -0.2794
+
+
+
+         CANONICAL CORRELATION 2
+SQUARED CORRELATION COEFFICIENT =        0.05638
+
+COEFFICIENTS FOR THE FIRST DATA SET:
+      0.8829        -0.4285
+
+
+COEFFICIENTS FOR THE SECOND DATA SET:
+     -0.5829         0.5009         0.2268         0.0997        -0.1680
+      -0.6935         0.4792         0.1951        -0.2388
+
+
+compute resc(8,3)=1.0-((1.0-ccor(1))*dffac)
+
+**
+**
+**
+
+write res1
+      0.0941         0.0988         0.0110
+      0.0351     6.1438e-03         0.0456
+      0.0440         0.0643        -0.0373
+     -0.0233    -2.8899e-03        -0.0872
+      0.0853         0.1051     7.0004e-03
+      0.1068         0.1279        -0.0161
+     -0.0284         0.1298        -0.0703
+      0.0294         0.1125        -0.0711
+
+
+write res2
+ -4.3780e-03        -0.0737         0.0125
+      0.0238        -0.0447         0.0395
+     -0.0283        -0.0880     2.8710e-03
+ -4.8122e-03        -0.0544        -0.0562
+     -0.0344        -0.0441         0.0284
+     -0.0300        -0.0483         0.0406
+     -0.0446        -0.0395        -0.0345
+ -5.7144e-03        -0.0211    -1.0946e-03
+
+
+write resc
+      0.1025         0.0999         0.0239
+      0.0613         0.0161         0.0576
+      0.0460         0.0694         0.0556
+ -4.1559e-03     1.4429e-03        -0.0550
+      0.0894         0.1066         0.1242
+      0.1071         0.1281         0.0810
+     -0.0283         0.1564        -0.0341
+      0.0367         0.1542         0.0251
+
+

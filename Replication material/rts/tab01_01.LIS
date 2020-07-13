@@ -1,0 +1,170 @@
+*tab01_01.rts, mww, 5/7/03
+* Table 1_01
+*
+*
+env echo
+cal 1950 1 4
+all 0 2002:4
+*
+*
+* -- Read in Data
+*
+
+
+sou qdatain.rts
+
+
+compute missc=1.0e+32
+*
+* Write Data to Output files
+*
+smpl 1950:1 2002:4
+open data \g7\data\cngdppc.q50
+data(for=free,missing=missc) / cngdppc
+close data;
+
+open data \g7\data\frgdppc.q50
+data(for=free,missing=missc) / frgdppc
+close data;
+
+open data \g7\data\bdgdppc.q50
+data(for=free,missing=missc) / bdgdppc
+close data;
+
+open data \g7\data\itgdppc.q50
+data(for=free,missing=missc) / itgdppc
+close data;
+
+open data \g7\data\jpgdppc.q50
+data(for=free,missing=missc) / jpgdppc
+close data;
+
+open data \g7\data\ukgdppc.q50
+data(for=free,missing=missc) / ukgdppc
+close data;
+
+open data \g7\data\usgdppc.q50
+data(for=free,missing=missc) / usgdppc
+close data;
+smpl 1950:1 2002:4
+set cny / = 100*log(cngdppc(t))   ;* in log points
+set fry / = 100*log(frgdppc(t))   ;* in log points
+set bdy / = 100*log(bdgdppc(t))   ;* in log points
+set ity / = 100*log(itgdppc(t))   ;* in log points
+set jpy / = 100*log(jpgdppc(t))   ;* in log points
+set uky / = 100*log(ukgdppc(t))   ;* in log points
+set usy / = 100*log(usgdppc(t))   ;* in log points
+
+set d1cny / = 4*(cny(t)-cny(t-1))
+set d1fry / = 4*(fry(t)-fry(t-1))
+set d1bdy / = 4*(bdy(t)-bdy(t-1))
+set d1ity / = 4*(ity(t)-ity(t-1))
+set d1jpy / = 4*(jpy(t)-jpy(t-1))
+set d1uky / = 4*(uky(t)-uky(t-1))
+set d1usy / = 4*(usy(t)-usy(t-1))
+
+set d4cny / = (cny(t)-cny(t-4))
+set d4fry / = (fry(t)-fry(t-4))
+set d4bdy / = (bdy(t)-bdy(t-4))
+set d4ity / = (ity(t)-ity(t-4))
+set d4jpy / = (jpy(t)-jpy(t-4))
+set d4uky / = (uky(t)-uky(t-4))
+set d4usy / = (usy(t)-usy(t-4))
+
+smpl 1960:1 1969:4
+table / d1cny d1fry d1bdy d1ity d1jpy d1uky d1usy
+
+Series             Obs       Mean       Std Error      Minimum       Maximum
+D1CNY                39   3.113147721   4.266382048  -9.752600472  11.206756388
+D1FRY                39   4.070396193   3.814368229  -8.392582807  15.704555783
+D1BDY                39   3.826848641   7.108804502 -15.212895376  18.428797833
+D1ITY                39   4.547307805   4.301925028  -8.696772850  13.412951070
+D1JPY                39   8.645497580   4.370326352  -0.340641179  21.034243877
+D1UKY                40   2.353400299   4.012242834  -4.731119456  15.397760812
+D1USY                40   2.945063798   3.530123902  -6.844387285   8.648655048
+
+table / d4cny d4fry d4bdy d4ity d4jpy d4uky d4usy
+
+Series             Obs       Mean       Std Error      Minimum       Maximum
+D4CNY                36   3.381965637   1.826494689  -2.952831325   6.559351361
+D4FRY                36   4.200463786   1.238175368   0.868441638   8.583168988
+D4BDY                36   3.410998371   2.564227106  -2.491838232   8.647727629
+D4ITY                36   4.880429634   2.340198955  -1.101393398   9.140725788
+D4JPY                36   8.613783132   2.185682548   3.715928644  12.320666435
+D4UKY                40   2.553325629   1.841697769  -0.490808531   7.399659380
+D4USY                40   3.014627782   2.090313562  -2.669105039   6.987173025
+
+smpl 1970:1 1979:4
+table / d1cny d1fry d1bdy d1ity d1jpy d1uky d1usy
+
+Series             Obs       Mean       Std Error      Minimum       Maximum
+D1CNY                40   2.544191781   3.726241525  -5.666946288  10.215761462
+D1FRY                40   2.969358567   2.662603569  -6.536849946   8.089852262
+D1BDY                40   2.587973485   5.510891982 -12.620196709  15.052336050
+D1ITY                40   3.607163218   5.131194248  -9.047202976  17.747946160
+D1JPY                40   3.547436497   4.650813671 -15.326773303  11.753984277
+D1UKY                40   2.195616375   5.995897660 -10.291993800  18.858695722
+D1USY                40   2.201264694   4.392455379  -6.139083121  14.061876534
+
+table / d4cny d4fry d4bdy d4ity d4jpy d4uky d4usy
+
+Series             Obs       Mean       Std Error      Minimum       Maximum
+D4CNY                40   2.606573531   1.822066752  -2.212348788   6.855405509
+D4FRY                40   3.046715904   1.663586815  -1.775273388   5.506345848
+D4BDY                40   2.864208382   2.129991423  -2.481601242   6.136642526
+D4ITY                40   3.220471581   3.137866689  -4.349334800   8.729375800
+D4JPY                40   3.898133702   3.155390260  -3.341587483  11.000866839
+D4UKY                40   2.222008039   2.479843181  -3.541408951   9.760605998
+D4USY                40   2.140608928   2.737556569  -3.657020885   6.508708326
+
+smpl 1980:1 1989:4
+table / d1cny d1fry d1bdy d1ity d1jpy d1uky d1usy
+
+Series             Obs       Mean       Std Error      Minimum       Maximum
+D1CNY                40   1.708684992   3.930345983  -5.170687974   8.627961755
+D1FRY                40   1.776101932   2.065807565  -3.164527579   5.705642978
+D1BDY                40   1.571140105   4.232329214 -10.891085283  10.499398061
+D1ITY                40   2.165524759   2.153799715  -2.083677754   6.654850845
+D1JPY                40   3.211173034   2.911726376  -2.488468224  10.140368713
+D1UKY                40   2.116895364   3.350502286  -7.660235805   7.899575037
+D1USY                40   2.004100829   3.896645453  -9.419533733   8.425164002
+
+table / d4cny d4fry d4bdy d4ity d4jpy d4uky d4usy
+
+Series             Obs       Mean       Std Error      Minimum       Maximum
+D4CNY                40  1.8017949323  2.6660094345 -4.8896919641  5.2891095314
+D4FRY                40  1.7022302457  1.2703732830 -1.0597267573  3.9351387671
+D4BDY                40  1.6161129468  1.6731223263 -1.7926509089  4.3080316627
+D4ITY                40  2.3243506237  1.3325717280  0.0023212156  4.9501833666
+D4JPY                40  3.0704585949  1.5691328236  0.2270765490  6.4678968832
+D4UKY                40  2.1461507039  2.5144356178 -4.2842944931  5.5339068443
+D4USY                40  1.9981613074  2.6615860909 -3.8518116063  7.4144844298
+
+smpl 1990:1 2002:4
+table / d1cny d1fry d1bdy d1ity d1jpy d1uky d1usy
+
+Series             Obs       Mean       Std Error      Minimum       Maximum
+D1CNY                52   1.519223325   2.688375633  -7.262117161   5.847410166
+D1FRY                52   1.338492689   2.003999830  -3.007389781   4.719933686
+D1BDY                52   1.308373580   2.996872038  -5.291611364   7.888590392
+D1ITY                52   1.323141415   2.317133938  -4.166886666   7.509592733
+D1JPY                52   1.209662324   4.140503968 -14.566283176   8.873765214
+D1UKY                52   1.840966674   2.022787418  -5.365634725   5.252325970
+D1USY                52   1.620686574   2.260315911  -4.353886128   5.750038711
+
+table / d4cny d4fry d4bdy d4ity d4jpy d4uky d4usy
+
+Series             Obs       Mean       Std Error      Minimum       Maximum
+D4CNY                52  1.4212139654  2.2395270839 -4.6955549414  4.5907022217
+D4FRY                52  1.4326969734  1.4300893694 -1.7693756509  4.1451546830
+D4BDY                52  1.3412202023  1.5289719563 -3.0540590128  4.9883763268
+D4ITY                52  1.3731048517  1.2971252766 -2.0525225347  3.6885568135
+D4JPY                52  1.3067222543  2.0792238335 -2.9951947523  6.3885214323
+D4UKY                52  1.7914263647  1.5978548490 -2.7987652492  4.6175793127
+D4USY                52  1.6021779298  1.4700662509 -2.3306606741  3.7018275245
+
+
+end 1
+
+
+Normal Completion. Halt at 1

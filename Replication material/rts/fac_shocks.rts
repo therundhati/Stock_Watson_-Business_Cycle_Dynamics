@@ -1,0 +1,382 @@
+*
+* fac_shocs.rts, mww, 6/4/02
+* Read in Shocks computed in MA02 ... 
+* Project factors onto Shocks 
+* Also compute canonical correlations
+* 
+*
+sou cancor.src
+compute missc=1.0e+32
+cal 1950 1 4
+all 0 2002:4
+
+compute missc=1.0e+32
+* Read in Factors
+open data \g7\data\fachat_19602003
+data(for=free,org=obs,missing=missc) / f1t f2t
+close data
+open data \g7\data\fachat_19601984
+data(for=free,org=obs,missing=missc) / f11 f21
+close data
+open data \g7\data\fachat_19842003
+data(for=free,org=obs,missing=missc) / f12 f22
+close data
+* Read in Shocks
+open data \g7\data\shocks.rat
+data(for=rats) / cee gali
+data(for=rats) / cpall cpfood cpmat senmatpr
+data(for=rats) / poiln poilh
+close data
+
+declare rectangular res1(8,3)
+declare rectangular res2(8,3)
+declare rectangular resc(8,3)
+
+compute nl = 4
+compute k1 = 2
+compute k2 = 2*nl+1
+
+linreg(print) f1t /
+# constant cee{-nl to nl}
+compute res1(1,1)=%rbarsq
+
+linreg(print) f1t /
+# constant gali{-nl to nl}
+compute res1(2,1)=%rbarsq
+
+linreg(print) f1t /
+# constant cpall{-nl to nl}
+compute res1(3,1)=%rbarsq
+
+linreg(print) f1t /
+# constant cpfood{-nl to nl}
+compute res1(4,1)=%rbarsq
+
+linreg(print) f1t /
+# constant cpmat{-nl to nl}
+compute res1(5,1)=%rbarsq
+
+linreg(print) f1t /
+# constant senmatpr{-nl to nl}
+compute res1(6,1)=%rbarsq
+
+linreg(print) f1t /
+# constant poiln{-nl to nl}
+compute res1(7,1)=%rbarsq
+
+linreg(print) f1t /
+# constant poilh{-nl to nl}
+compute res1(8,1)=%rbarsq
+
+******
+linreg(print) f11 /
+# constant cee{-nl to nl}
+compute res1(1,2)=%rbarsq
+
+linreg(print) f11 /
+# constant gali{-nl to nl}
+compute res1(2,2)=%rbarsq
+
+linreg(print) f11 /
+# constant cpall{-nl to nl}
+compute res1(3,2)=%rbarsq
+
+linreg(print) f11 /
+# constant cpfood{-nl to nl}
+compute res1(4,2)=%rbarsq
+
+linreg(print) f11 /
+# constant cpmat{-nl to nl}
+compute res1(5,2)=%rbarsq
+
+linreg(print) f11 /
+# constant senmatpr{-nl to nl}
+compute res1(6,2)=%rbarsq
+
+linreg(print) f11 /
+# constant poiln{-nl to nl}
+compute res1(7,2)=%rbarsq
+
+linreg(print) f11 /
+# constant poilh{-nl to nl}
+compute res1(8,2)=%rbarsq
+******
+linreg(print) f12 /
+# constant cee{-nl to nl}
+compute res1(1,3)=%rbarsq
+
+linreg(print) f12 /
+# constant gali{-nl to nl}
+compute res1(2,3)=%rbarsq
+
+linreg(print) f12 /
+# constant cpall{-nl to nl}
+compute res1(3,3)=%rbarsq
+
+linreg(print) f12 /
+# constant cpfood{-nl to nl}
+compute res1(4,3)=%rbarsq
+
+linreg(print) f12 /
+# constant cpmat{-nl to nl}
+compute res1(5,3)=%rbarsq
+
+linreg(print) f12 /
+# constant senmatpr{-nl to nl}
+compute res1(6,3)=%rbarsq
+
+linreg(print) f12 /
+# constant poiln{-nl to nl}
+compute res1(7,3)=%rbarsq
+
+linreg(print) f12 /
+# constant poilh{-nl to nl}
+compute res1(8,3)=%rbarsq
+**
+**
+**
+linreg(print) f2t /
+# constant cee{-nl to nl}
+compute res2(1,1)=%rbarsq
+
+linreg(print) f2t /
+# constant gali{-nl to nl}
+compute res2(2,1)=%rbarsq
+
+linreg(print) f2t /
+# constant cpall{-nl to nl}
+compute res2(3,1)=%rbarsq
+
+linreg(print) f2t /
+# constant cpfood{-nl to nl}
+compute res2(4,1)=%rbarsq
+
+linreg(print) f2t /
+# constant cpmat{-nl to nl}
+compute res2(5,1)=%rbarsq
+
+linreg(print) f2t /
+# constant senmatpr{-nl to nl}
+compute res2(6,1)=%rbarsq
+
+linreg(print) f2t /
+# constant poiln{-nl to nl}
+compute res2(7,1)=%rbarsq
+
+linreg(print) f2t /
+# constant poilh{-nl to nl}
+compute res2(8,1)=%rbarsq
+
+******
+linreg(print) f21 /
+# constant cee{-nl to nl}
+compute res2(1,2)=%rbarsq
+
+linreg(print) f21 /
+# constant gali{-nl to nl}
+compute res2(2,2)=%rbarsq
+
+linreg(print) f21 /
+# constant cpall{-nl to nl}
+compute res2(3,2)=%rbarsq
+
+linreg(print) f21 /
+# constant cpfood{-nl to nl}
+compute res2(4,2)=%rbarsq
+
+linreg(print) f21 /
+# constant cpmat{-nl to nl}
+compute res2(5,2)=%rbarsq
+
+linreg(print) f21 /
+# constant senmatpr{-nl to nl}
+compute res2(6,2)=%rbarsq
+
+linreg(print) f21 /
+# constant poiln{-nl to nl}
+compute res2(7,2)=%rbarsq
+
+linreg(print) f21 /
+# constant poilh{-nl to nl}
+compute res2(8,2)=%rbarsq
+******
+linreg(print) f22 /
+# constant cee{-nl to nl}
+compute res2(1,3)=%rbarsq
+
+linreg(print) f22 /
+# constant gali{-nl to nl}
+compute res2(2,3)=%rbarsq
+
+linreg(print) f22 /
+# constant cpall{-nl to nl}
+compute res2(3,3)=%rbarsq
+
+linreg(print) f22 /
+# constant cpfood{-nl to nl}
+compute res2(4,3)=%rbarsq
+
+linreg(print) f22 /
+# constant cpmat{-nl to nl}
+compute res2(5,3)=%rbarsq
+
+linreg(print) f22 /
+# constant senmatpr{-nl to nl}
+compute res2(6,3)=%rbarsq
+
+linreg(print) f22 /
+# constant poiln{-nl to nl}
+compute res2(7,3)=%rbarsq
+
+linreg(print) f22 /
+# constant poilh{-nl to nl}
+compute res2(8,3)=%rbarsq
+
+**
+**
+**
+cmom(print,corr) /
+# f1t f2t cee{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute nobs = 0.0 + %nobs
+compute nn = 0.0 + 2.0*nl + 2.0
+compute dffac = (nobs-1.0)/(nobs-nn)
+dis nobs
+dis nn
+dis dffac
+compute resc(1,1)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f1t f2t gali{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(2,1)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f1t f2t cpall{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(3,1)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f1t f2t cpfood{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(4,1)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f1t f2t cpmat{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(5,1)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f1t f2t senmatpr{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(6,1)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f1t f2t poiln{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(7,1)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f1t f2t poilh{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(8,1)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f11 f21 cee{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute nobs = 0.0 + %nobs
+compute nn = 0.0 + 2.0*nl + 2.0
+compute dffac = (nobs-1.0)/(nobs-nn)
+dis nobs
+dis nn
+dis dffac
+compute resc(1,2)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f11 f21 gali{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(2,2)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f11 f21 cpall{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(3,2)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f11 f21 cpfood{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(4,2)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f11 f21 cpmat{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(5,2)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f11 f21 senmatpr{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(6,2)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f11 f21 poiln{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(7,2)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f11 f21 poilh{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(8,2)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f12 f22 cee{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute nobs = 0.0 + %nobs
+compute nn = 0.0 + 2.0*nl + 2.0
+compute dffac = (nobs-1.0)/(nobs-nn)
+dis nobs
+dis nn
+dis dffac
+compute resc(1,3)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f12 f22 gali{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(2,3)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f12 f22 cpall{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(3,3)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f12 f22 cpfood{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(4,3)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f12 f22 cpmat{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(5,3)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f12 f22 senmatpr{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(6,3)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f12 f22 poiln{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(7,3)=1.0-((1.0-ccor(1))*dffac)
+
+cmom(print,corr) /
+# f12 f22 poilh{-nl to nl}
+@cancor k1 k2 %cmom ccor
+compute resc(8,3)=1.0-((1.0-ccor(1))*dffac)
+
+**
+**
+**
+
+write res1
+write res2
+write resc
